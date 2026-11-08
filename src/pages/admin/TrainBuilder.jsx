@@ -8,6 +8,7 @@ import { nextStep, STEPS } from './trainStore.js';
 import StationInput from '../../components/StationInput.jsx';
 import AddStationDialog from './AddStationDialog.jsx';
 import QuotaEditor from './QuotaEditor.jsx';
+import CoachChanges, { coachDates } from './CoachChanges.jsx';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -93,6 +94,7 @@ export default function TrainBuilder({ train, onChange, takenNumbers = [] }) {
         })}
       </ol>
       {train && !current && <CoachTable coaches={train.coaches} />}
+      {train && !current && <CoachChanges train={train} onChange={onChange} />}
       {train && !current && <QuotaEditor key={`${train.trainNumber}-${(train.coaches || []).length}`} trainNumber={train.trainNumber} />}
       </div>
     </div>
@@ -110,8 +112,10 @@ function summary(step, t) {
       return `${t.stops?.length || 0} stops`;
     case 'route':
       return t.basePrice != null ? `Base fare ${rupees(t.basePrice)}` : 'Set';
-    case 'seats':
-      return `${t.coaches?.length || 0} coaches, ${t.totalSeats} seats`;
+    case 'seats': {
+      const dated = (t.coaches || []).filter((c) => c.validFrom || c.validTo).length;
+      return `${t.coaches?.length || 0} coaches, ${t.totalSeats} seats today${dated ? `, ${dated} with dates` : ''}`;
+    }
     default:
       return '';
   }
@@ -666,7 +670,10 @@ function SeatsStep({ train, onDone }) {
         {totalCoaches > MAX_COACHES ? ` (max ${MAX_COACHES} coaches)` : ''}
       </p>
       {train.coaches?.length > 0 && (
-        <Note tone="warn">This replaces the train’s current coaches. It’s only allowed while the train has no bookings.</Note>
+        <Note tone="warn">
+          This replaces all of the train’s coaches, and is only allowed while it has no upcoming bookings (cancelled and past tickets
+          don’t count). To add or remove coaches for some dates, use Coach changes below the coaches instead.
+        </Note>
       )}
       <ErrorNote>{error}</ErrorNote>
       <Button busy={busy} busyText="Creating coaches…" type="submit">
@@ -689,9 +696,10 @@ function CoachTable({ coaches }) {
       <h3 className="h6 mb-3">Coaches</h3>
       <div className="d-flex flex-wrap gap-2">
         {coaches.map((c) => (
-          <div key={c.coachNumber} className={`coach-chip ${SEAT_TYPES.find((t) => t.id === c.coachType)?.ac ? 'ac' : ''}`}>
+          <div key={c.coachNumber} className={`coach-chip ${SEAT_TYPES.find((t) => t.id === c.coachType)?.ac ? 'ac' : ''} ${coachDates(c) ? 'dated' : ''}`}>
             <strong title={c.coachNumber}>{shortCoach(c)}</strong>
             {c.numberOfSeats} seats
+            {coachDates(c) && <small className="d-block text-secondary">{coachDates(c)}</small>}
           </div>
         ))}
       </div>

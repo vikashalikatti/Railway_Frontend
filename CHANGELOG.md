@@ -2,6 +2,13 @@
 
 Each version is delivered as `railway-frontend-vX.Y.Z.zip`.
 
+## v1.13.0 — 9 Nov 2026
+Coach changes by date. Use with backend v1.8.0.
+- Admin, under a train's coaches: "Coach changes" to add coaches of any class from a date, for good
+  or until an end date (rush days), and to remove chosen coaches from a date. The server's reason
+  is shown if confirmed passengers are still in a coach.
+- Coaches with dates show them ("12 Nov 2026 to 20 Nov 2026"); the Coaches step counts today's seats.
+
 ## v1.12.0 — 9 Nov 2026
 Coaches drawn like the real thing. Works with backend v1.7.0 (no backend change).
 - Chart & vacancy and the admin chart draw every coach front to back with doors, toilets and the

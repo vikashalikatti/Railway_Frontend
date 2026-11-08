@@ -197,6 +197,10 @@ export const adminApi = {
   /** station: { code, name, city, state } */
   addStation: (token, station) => call('POST', '/admin/stations', { token, json: station }),
   /** Quota split per class: [{ seatType, tatkalPct, premiumPct, ladiesPct, seniorPct, saved, seats, seatsByQuota }] */
+  /** Extra coaches from a date, for good or until `to` (rush days): { seatType, count, from, to } */
+  addCoachesFrom: (token, trainNo, body) => call('POST', `/admin/coaches/${trainNo}/add`, { token, json: body }),
+  /** Take coaches off from a date on: { coachNumbers: ['S9'], from } */
+  removeCoachesFrom: (token, trainNo, body) => call('POST', `/admin/coaches/${trainNo}/remove`, { token, json: body }),
   /** Reservation chart with every passenger; any time. date is yyyy-mm-dd. */
   chart: (token, trainNo, date) => call('GET', `/admin/chart/${trainNo}`, { token, query: { date } }),
   quotas: (token, trainNo) => call('GET', `/admin/quotas/${trainNo}`, { token }),

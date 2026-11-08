@@ -8,6 +8,16 @@ export function nextStep(train) {
 
 const isObj = (x) => x && typeof x === 'object';
 
+const todayIso = () => {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
+
+/** Does a coach run on this date (yyyy-mm-dd)? Coaches without dates always run. */
+export function runsOn(c, iso) {
+  return (!c.validFrom || c.validFrom <= iso) && (!c.validTo || c.validTo >= iso);
+}
+
 /** "06:40:00" or [6, 40] (however the server sends a time) -> "06:40" for <input type="time"> */
 const hhmm = (t) => {
   if (Array.isArray(t)) return `${String(t[0] ?? 0).padStart(2, '0')}:${String(t[1] ?? 0).padStart(2, '0')}`;
@@ -34,8 +44,15 @@ export function fromServer(t) {
       km: Number(s.km) || 0,
     })),
     basePrice: isObj(t.route) ? t.route.price : undefined,
-    coaches: coaches.map(({ coachNumber, coachType, numberOfSeats }) => ({ coachNumber, coachType, numberOfSeats })),
-    totalSeats: coaches.reduce((sum, c) => sum + (c.numberOfSeats || 0), 0),
+    coaches: coaches.map(({ coachNumber, coachType, numberOfSeats, validFrom, validTo }) => ({
+      coachNumber,
+      coachType,
+      numberOfSeats,
+      validFrom: validFrom || null,
+      validTo: validTo || null,
+    })),
+    // seats on the coaches running today
+    totalSeats: coaches.filter((c) => runsOn(c, todayIso())).reduce((sum, c) => sum + (c.numberOfSeats || 0), 0),
     done: {
       train: true,
       schedule: days.length > 0,
