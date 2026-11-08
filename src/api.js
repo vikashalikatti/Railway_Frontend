@@ -169,6 +169,16 @@ export const customerApi = {
       json: passengers,
     }),
   pnr: (token, pnr) => call('GET', `/customer/pnr/${pnr}`, { token }),
+  /** PNR status without logging in (no names) */
+  publicPnr: (pnr) => call('GET', `/customer/pnr-status/${pnr}`),
+  /** Running status of a train on a date (yyyy-mm-dd): cancelled, delay, where it is. Public. */
+  running: (trainNo, date) => call('GET', `/customer/running/${trainNo}`, { query: { date }, quiet: true }),
+  /** Two trains with one change */
+  connections: (token, { from, to, date }) =>
+    call('GET', '/customer/connections', { token, query: { from, to, date: toBackendDate(date) } }),
+  savedPassengers: (token) => call('GET', '/customer/saved_passengers', { token, quiet: true }),
+  savePassenger: (token, p) => call('POST', '/customer/saved_passengers', { token, json: p }),
+  deleteSavedPassenger: (token, id) => call('DELETE', `/customer/saved_passengers/${id}`, { token }),
   /** Chart & vacancy after the chart is prepared: berths only, no names. Public. date is yyyy-mm-dd. */
   chart: (trainNo, date) => call('GET', `/customer/chart/${trainNo}`, { query: { date } }),
   myBookings: (token) => call('GET', '/customer/my_bookings', { token }),
@@ -201,6 +211,10 @@ export const adminApi = {
   addCoachesFrom: (token, trainNo, body) => call('POST', `/admin/coaches/${trainNo}/add`, { token, json: body }),
   /** Take coaches off from a date on: { coachNumbers: ['S9'], from } */
   removeCoachesFrom: (token, trainNo, body) => call('POST', `/admin/coaches/${trainNo}/remove`, { token, json: body }),
+  cancelRun: (token, trainNo, body) => call('POST', `/admin/runs/${trainNo}/cancel`, { token, json: body }),
+  rescheduleRun: (token, trainNo, body) => call('POST', `/admin/runs/${trainNo}/reschedule`, { token, json: body }),
+  runPosition: (token, trainNo, body) => call('POST', `/admin/runs/${trainNo}/position`, { token, json: body }),
+  report: (token, from, to) => call('GET', '/admin/reports', { token, query: { from, to } }),
   /** Reservation chart with every passenger; any time. date is yyyy-mm-dd. */
   chart: (token, trainNo, date) => call('GET', `/admin/chart/${trainNo}`, { token, query: { date } }),
   quotas: (token, trainNo) => call('GET', `/admin/quotas/${trainNo}`, { token }),
@@ -275,4 +289,27 @@ export function quotaProblem(quotaId, passengers) {
   if (quotaId === 'SS' && ok.some((p) => (p.gender === 'Female' ? Number(p.age) < 45 : Number(p.age) < 60)))
     return 'Senior citizen quota is for men aged 60+ and women aged 45+.';
   return '';
+}
+
+/** Meals and bedroll (same as the backend's TravelRules) */
+export const MEALS = [
+  { id: 'NONE', label: 'No meal', price: 0 },
+  { id: 'VEG', label: 'Veg', price: 120 },
+  { id: 'NON_VEG', label: 'Non-veg', price: 150 },
+  { id: 'JAIN', label: 'Jain', price: 120 },
+];
+export const BEDROLL_PRICE = 150;
+export const bedrollIncluded = (type) => ['AC1_TIER', 'AC2_TIER', 'AC3_TIER', 'AC3_ECONOMY'].includes(type);
+export const bedrollOffered = (type) => type === 'SLEEPER_CLASS';
+export const isInfant = (age) => age !== '' && Number(age) < 5;
+export const isChild = (age) => age !== '' && Number(age) >= 5 && Number(age) < 12;
+/** Ticket fare for one passenger before extras: infants free, 5-11 without a berth half */
+export function ticketFare(p, fullFare) {
+  if (isInfant(p.age)) return 0;
+  if (isChild(p.age) && p.noBerth) return Math.round(fullFare / 2);
+  return fullFare;
+}
+export function extrasFare(p, type) {
+  const meal = MEALS.find((m) => m.id === (p.meal || 'NONE'));
+  return (meal ? meal.price : 0) + (p.bedroll && bedrollOffered(type) ? BEDROLL_PRICE : 0);
 }

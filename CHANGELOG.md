@@ -2,6 +2,22 @@
 
 Each version is delivered as `railway-frontend-vX.Y.Z.zip`.
 
+## v1.14.0 — 9 Nov 2026
+Passenger and admin features. Use with backend v1.9.0.
+- PNR status page (/pnr, no log-in; also in the footer): booking and current status per passenger,
+  without names.
+- Passengers page (/passengers) to keep a master list; one-click chips on the booking form, and
+  "Save new passengers for next time" after booking.
+- Booking form: under-5s travel free without a berth; ages 5–11 can pick "No berth (half fare)";
+  meal choice per passenger; bedroll in Sleeper (included in AC berth classes). The total updates.
+- Tickets show no-berth passengers, meals and bedroll, live running status (late by, where the
+  train is), train cancellations and refunds.
+- No direct train? Search shows journeys with one change, with links to book each train.
+- Admin "Train runs" (/console/runs): update the live position and delay, reschedule (passengers
+  emailed) or cancel a run (everyone refunded and emailed, after confirming).
+- Admin "Reports" (/console/reports): totals, occupancy and revenue per train and class, and a
+  day-by-day table.
+
 ## v1.13.0 — 9 Nov 2026
 Coach changes by date. Use with backend v1.8.0.
 - Admin, under a train's coaches: "Coach changes" to add coaches of any class from a date, for good

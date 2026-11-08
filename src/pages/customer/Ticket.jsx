@@ -1,10 +1,10 @@
 import Badge from 'react-bootstrap/Badge';
 import Card from 'react-bootstrap/Card';
 import Table from 'react-bootstrap/Table';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CoachMap from '../../components/CoachMap.jsx';
-import { BERTH_LABELS, quotaOf, SEAT_TYPES } from '../../api.js';
+import { BERTH_LABELS, customerApi, MEALS, quotaOf, SEAT_TYPES } from '../../api.js';
 import { rupees } from '../../components/ui.jsx';
 
 const STATUS = {
@@ -19,6 +19,8 @@ export function passengerStatus(p, quota = 'GN') {
   const wl = quotaOf(quota).wl || 'WL';
   if (p.status === 'CNF') return `CNF ${p.coachNumber}/${p.seatNumber}/${BERTH_LABELS[p.berthType] || p.berthType}`;
   if (p.status === 'WL') return `${wl} ${p.currentWlPosition ?? p.wlNumber}`;
+  if (p.status === 'NB') return p.age < 5 ? 'Infant, no berth (free)' : 'Child, no berth';
+  if (p.cancelReason === 'TRAIN') return 'Train cancelled';
   if (p.cancelReason === 'CHART') return 'Not confirmed at charting';
   return 'Cancelled';
 }
@@ -41,6 +43,29 @@ export default function Ticket({ booking: b, actions, footer }) {
   const wl = quotaOf(quota).wl || 'WL';
   const chartDone = b.chartStatus === 'PREPARED' || b.chartStatus === 'FINAL';
   const [showCoach, setShowCoach] = useState(false);
+  // Running status for journeys from yesterday on (cancelled, rescheduled, where the train is)
+  const [running, setRunning] = useState(null);
+  useEffect(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    if (b.journeyDate < d.toISOString().slice(0, 10)) return;
+    customerApi
+      .running(b.trainNumber, b.journeyDate)
+      .then((res) => setRunning(res.data2))
+      .catch(() => {});
+  }, [b.trainNumber, b.journeyDate]);
+  const runLine = (() => {
+    if (!running) return null;
+    if (running.cancelled) return { tone: 'danger', text: `Train cancelled on this date${running.cancelReason ? `: ${running.cancelReason}` : ''}` };
+    const where = running.currentStop != null ? running.stops[running.currentStop] : null;
+    const late = running.delayMinutes > 0 ? `Running ${running.delayMinutes} min late` : 'On time';
+    const board = running.stops.find((s) => s.station === b.fromStation);
+    const parts = [late];
+    if (where) parts.push(`${running.departed ? 'left' : 'at'} ${where.station}`);
+    if (running.delayMinutes > 0 && board?.expectedDeparture) parts.push(`expected to leave ${b.fromStation} at ${board.expectedDeparture}`);
+    if (!where && running.delayMinutes === 0) return null;
+    return { tone: running.delayMinutes > 0 ? 'warning' : 'success', text: parts.join(', ') };
+  })();
   // Confirmed passengers per coach, for "show in coach"
   const byCoach = {};
   b.passengers
@@ -119,6 +144,13 @@ export default function Ticket({ booking: b, actions, footer }) {
               <td>{p.age}</td>
               <td>
                 <span className={`pax-status ps-${p.status.toLowerCase()}`}>{passengerStatus(p, quota)}</span>
+                {(p.meal && p.meal !== 'NONE') || p.bedroll ? (
+                  <div className="small text-secondary">
+                    {[p.meal && p.meal !== 'NONE' ? `${MEALS.find((m) => m.id === p.meal)?.label || p.meal} meal` : null, p.bedroll ? 'bedroll' : null]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </div>
+                ) : null}
                 {p.status === 'WL' && p.currentWlPosition != null && p.wlNumber !== p.currentWlPosition && (
                   <div className="small text-secondary">
                     Booked at {wl} {p.wlNumber}
@@ -131,6 +163,22 @@ export default function Ticket({ booking: b, actions, footer }) {
           ))}
         </tbody>
       </Table>
+      {(runLine || b.refundAmount > 0) && (
+        <div className="border-top px-3 py-2 small d-flex flex-wrap gap-3">
+          {runLine && (
+            <span className={`text-${runLine.tone === 'warning' ? 'warning-emphasis' : runLine.tone}`}>
+              <i className="bi bi-broadcast me-1" aria-hidden="true" />
+              {runLine.text}
+            </span>
+          )}
+          {b.refundAmount > 0 && (
+            <span className="fw-semibold">
+              <i className="bi bi-arrow-counterclockwise me-1" aria-hidden="true" />
+              Refund {rupees(b.refundAmount)}
+            </span>
+          )}
+        </div>
+      )}
       {coachNumbers.length > 0 && (
         <div className="border-top px-3 py-2">
           <button type="button" className="btn btn-link btn-sm p-0" onClick={() => setShowCoach((v) => !v)} aria-expanded={showCoach}>
