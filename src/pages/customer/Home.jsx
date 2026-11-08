@@ -23,6 +23,7 @@ export function saveLastSearch(q) {
 export function resultsUrl(q) {
   const p = new URLSearchParams({ from: q.from, to: q.to, date: q.date });
   if (q.cls) p.set('cls', q.cls);
+  if (q.quota && q.quota !== 'GN') p.set('quota', q.quota);
   // labels shown in the boxes, when they differ from what is searched (e.g. "KSR Bengaluru City Jn" for SBC)
   if (q.fl && q.fl !== q.from) p.set('fl', q.fl);
   if (q.tl && q.tl !== q.to) p.set('tl', q.tl);

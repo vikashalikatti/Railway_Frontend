@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BERTH_LABELS, customerApi } from '../../api.js';
+import { BERTH_LABELS, customerApi, quotaOf, quotaProblem } from '../../api.js';
 import { useAction, useSession } from '../../session.jsx';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
@@ -9,7 +9,6 @@ import { check, focusFirstError, rules } from '../../validate.js';
 import { digits } from '../../useForm.js';
 import Ticket from './Ticket.jsx';
 
-const MAX_PASSENGERS = 6;
 const blank = () => ({ name: '', age: '', gender: '', berthPreference: '' });
 
 // Same checks as signup, worded for a passenger
@@ -20,7 +19,9 @@ const passengerSchema = {
   gender: rules.required('the gender'),
 };
 
-export default function BookingPanel({ train, seatClass, availability, date, from, to, onClose, onBooked }) {
+export default function BookingPanel({ train, seatClass, availability, date, from, to, quota = 'GN', onClose, onBooked }) {
+  const q = quotaOf(quota);
+  const MAX_PASSENGERS = q.max;
   const { session, notify } = useSession();
   const { busy, run } = useAction();
   const [passengers, setPassengers] = useState([blank()]);
@@ -30,6 +31,10 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
 
   const preferences = availability?.berthPreferences || [];
   const onWaitlist = availability && availability.available < passengers.length;
+  // Premium Tatkal, Ladies, Senior citizen and after-chart bookings have no waitlist
+  const noWaitlist = !q.wl || availability?.chartPrepared;
+  const tooMany = onWaitlist && noWaitlist;
+  const rulesProblem = quotaProblem(quota, passengers);
 
   const update = (i, k, v) => {
     setPassengers((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
@@ -65,6 +70,7 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
       setTimeout(() => focusFirstError(formEl), 0);
       return;
     }
+    if (quotaProblem(quota, passengers) || tooMany) return; // shown above the passengers
     run(async () => {
       const res = await customerApi.book(session.token, {
         trainNo: train.trainNumber,
@@ -72,6 +78,7 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
         date,
         from,
         to,
+        quota,
         passengers: passengers.map((p) => ({
           name: p.name.trim(),
           age: Number(p.age),
@@ -110,17 +117,29 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
       <div className="d-flex justify-content-between align-items-baseline gap-3">
         <h3 className="h5 mb-0">
           Book {seatClass.label}, {travelDate}
+          {quota !== 'GN' && <span className="badge text-bg-warning ms-2 align-middle">{q.label}</span>}
         </h3>
         <button type="button" className="btn btn-link btn-sm p-0" onClick={onClose}>
           Cancel
         </button>
       </div>
 
-      {onWaitlist && (
+      {q.hint && <Note>{q.hint}</Note>}
+
+      {tooMany && (
+        <Note tone="warn">
+          {availability.available === 0 ? 'No seats are left' : `Only ${availability.available} ${availability.available === 1 ? 'seat is' : 'seats are'} left`}
+          {availability.chartPrepared
+            ? ', and the chart has been prepared, so there is no waitlist.'
+            : ` in ${q.label} quota, which has no waitlist. Remove passengers or search again in General quota.`}
+        </Note>
+      )}
+
+      {onWaitlist && !noWaitlist && (
         <Note tone="warn">
           {availability.available > 0
             ? `Only ${availability.available} ${availability.available === 1 ? 'seat is' : 'seats are'} left. The other passengers will be waitlisted and confirmed automatically if someone cancels.`
-            : 'No seats are left in this class. Passengers will be waitlisted and confirmed automatically if someone cancels.'}
+            : `No seats are left in ${quota === 'GN' ? 'this class' : `${q.label} quota`}. Passengers will be waitlisted (${q.wl}) and confirmed automatically if someone cancels.`}
         </Note>
       )}
 
@@ -189,6 +208,12 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
         </fieldset>
       ))}
 
+      {rulesProblem && (
+        <Note tone="warn">
+          {rulesProblem}
+        </Note>
+      )}
+
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
         {passengers.length < MAX_PASSENGERS ? (
           <button type="button" className="btn btn-outline-primary btn-sm" onClick={add}>
@@ -200,7 +225,7 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
         )}
         <div className="d-flex align-items-center gap-3">
           {fareTotal != null && <span className="fs-4 fw-bold">{rupees(fareTotal)}</span>}
-          <Button busy={busy} busyText="Booking…" type="submit" variant="accent" size="lg">
+          <Button busy={busy} busyText="Booking…" type="submit" variant="accent" size="lg" disabled={!!rulesProblem || tooMany}>
             Book {passengers.length === 1 ? 'ticket' : `${passengers.length} tickets`}
           </Button>
         </div>

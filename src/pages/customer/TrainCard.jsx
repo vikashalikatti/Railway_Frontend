@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { customerApi } from '../../api.js';
+import { customerApi, quotaOf, quotaOffered } from '../../api.js';
 import { useAction, useSession } from '../../session.jsx';
 import Badge from 'react-bootstrap/Badge';
 import Card from 'react-bootstrap/Card';
@@ -12,7 +12,11 @@ import BookingPanel from './BookingPanel.jsx';
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-export default function TrainCard({ train, journey: j, date, from, to, preferredClass }) {
+/** Statuses that mean "can't book this right now" */
+const BLOCKED = ['REGRET', 'NOT AVAILABLE', 'CHART PREPARED'];
+
+export default function TrainCard({ train, journey: j, date, from, to, preferredClass, quota = 'GN' }) {
+  const q = quotaOf(quota);
   const { session } = useSession();
   const { busy, run } = useAction();
   const [availability, setAvailability] = useState({}); // seat type id → { available, waitlisted, fare, status, berthPreferences }
@@ -34,6 +38,7 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
           end: alightName,
           seatType: cls.id,
           date,
+          quota,
         });
         setAvailability((a) => ({ ...a, [cls.id]: res.data2 }));
       } finally {
@@ -42,6 +47,7 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
     });
 
   const pick = (cls) => {
+    if (!quotaOffered(quota, cls.id)) return;
     setSelected(cls.id);
     setBooking(false);
     if (availability[cls.id] === undefined) check(cls);
@@ -49,7 +55,8 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
 
   const cls = j.classes.find((c) => c.id === selected);
   const info = cls ? availability[cls.id] : undefined;
-  const canBook = info && info.status !== 'REGRET';
+  const canBook = info && !info.note && !BLOCKED.includes(info.status);
+  const willWait = info && info.available === 0 && !BLOCKED.includes(info.status);
 
   return (
     <Card as="article" className="tc shadow-sm">
@@ -102,13 +109,24 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
           {j.classes.length === 0 && <p className="text-secondary small mb-0">Seat classes haven’t been set up for this train yet.</p>}
           {j.classes.map((c) => {
             const a = availability[c.id];
-            const tone = !a ? '' : a.available > 0 ? 'ok' : a.status === 'REGRET' ? 'no' : 'wl';
+            const offered = quotaOffered(quota, c.id);
+            const tone = !a ? '' : a.available > 0 && !a.note ? 'ok' : BLOCKED.includes(a.status) || a.note ? 'no' : 'wl';
             return (
-              <button key={c.id} type="button" className={`class-tile ${selected === c.id ? 'is-selected' : ''}`} onClick={() => pick(c)} aria-pressed={selected === c.id}>
+              <button
+                key={c.id}
+                type="button"
+                className={`class-tile ${selected === c.id ? 'is-selected' : ''}`}
+                onClick={() => pick(c)}
+                aria-pressed={selected === c.id}
+                disabled={!offered}
+                title={offered ? undefined : `No ${q.label} quota in ${c.short}`}
+              >
                 <span className="ct-name">
                   {c.label} ({c.short})
                 </span>
-                {checking === c.id ? (
+                {!offered ? (
+                  <span className="ct-check text-secondary">No {q.label} quota</span>
+                ) : checking === c.id ? (
                   <span className="small text-primary d-inline-flex align-items-center gap-1">
                     <Spinner animation="border" size="sm" aria-hidden="true" /> Checking…
                   </span>
@@ -132,8 +150,23 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
                 <strong className="fs-5 me-2">{rupees(info.fare)}</strong>
                 <span className="small text-secondary">
                   per passenger, {cls.label}
-                  {info.available === 0 && info.status !== 'REGRET' ? '. You’ll join the waitlist.' : ''}
+                  {quota !== 'GN' ? `, ${q.label} quota` : ''}
+                  {quota === 'TQ' ? ' (includes the Tatkal charge)' : ''}
+                  {quota === 'PT' ? ' (Premium Tatkal: the fare rises as seats sell)' : ''}
+                  {willWait ? '. You’ll join the waitlist.' : ''}
                 </span>
+                {info.note && (
+                  <div className="small text-danger mt-1" role="status">
+                    <i className="bi bi-info-circle me-1" aria-hidden="true" />
+                    {info.note}
+                  </div>
+                )}
+                {info.chartPrepared && !info.note && (
+                  <div className="small text-secondary mt-1">
+                    <i className="bi bi-clipboard-check me-1" aria-hidden="true" />
+                    Chart prepared: only seats still free can be booked, without a waitlist.
+                  </div>
+                )}
               </>
             ) : (
               <span className="small text-secondary">Check {cls.label} to see seats and fare.</span>
@@ -145,7 +178,7 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
               {info ? 'Refresh' : 'Check availability'}
             </Button>
             <Button variant="accent" disabled={!canBook} onClick={() => setBooking(true)}>
-              {info && info.available === 0 ? 'Book on waitlist' : 'Book now'}
+              {willWait ? 'Book on waitlist' : 'Book now'}
             </Button>
           </div>
         </Card.Footer>
@@ -156,6 +189,7 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
           train={train}
           seatClass={cls}
           availability={info}
+          quota={quota}
           onBooked={() => check(cls)}
           date={date}
           from={boardName}

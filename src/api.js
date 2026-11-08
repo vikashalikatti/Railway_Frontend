@@ -150,11 +150,11 @@ export const customerApi = {
       token,
       query: { start, end, email, date: toBackendDate(date) },
     }),
-  selectClass: (token, { trainNo, start, end, seatType, date }) =>
+  selectClass: (token, { trainNo, start, end, seatType, date, quota = 'GN' }) =>
     call(
       'GET',
       `/customer/select_class/${trainNo}/${encodeURIComponent(start)}/${encodeURIComponent(end)}`,
-      { token, query: { seat_type: seatType, date: toBackendDate(date) } }
+      { token, query: { seat_type: seatType, date: toBackendDate(date), quota } }
     ),
   /** Live station search: code, name or city. No log-in needed. */
   stations: (q) => call('GET', '/customer/stations', { query: { q }, quiet: true }),
@@ -162,10 +162,10 @@ export const customerApi = {
   trains: (token, { from, to, date }) =>
     call('GET', '/customer/trains', { token, query: { from, to, date: toBackendDate(date) } }),
   /** passengers: [{ name, age, gender, berthPreference }] */
-  book: (token, { trainNo, seatType, date, from, to, passengers }) =>
+  book: (token, { trainNo, seatType, date, from, to, quota = 'GN', passengers }) =>
     call('POST', `/customer/booking/${trainNo}`, {
       token,
-      query: { seat_type: seatType, book_date: toBackendDate(date), from, to },
+      query: { seat_type: seatType, book_date: toBackendDate(date), from, to, quota },
       json: passengers,
     }),
   pnr: (token, pnr) => call('GET', `/customer/pnr/${pnr}`, { token }),
@@ -194,6 +194,10 @@ export const adminApi = {
   trains: (token) => call('GET', '/admin/trains', { token }),
   /** station: { code, name, city, state } */
   addStation: (token, station) => call('POST', '/admin/stations', { token, json: station }),
+  /** Quota split per class: [{ seatType, tatkalPct, premiumPct, ladiesPct, seniorPct, saved, seats, seatsByQuota }] */
+  quotas: (token, trainNo) => call('GET', `/admin/quotas/${trainNo}`, { token }),
+  /** shares: { SLEEPER_CLASS: { tatkalPct, premiumPct, ladiesPct, seniorPct }, … } */
+  saveQuotas: (token, trainNo, shares) => call('POST', `/admin/quotas/${trainNo}`, { token, json: shares }),
   /** Estimated km between consecutive stops: [null, 81, 223, …]; null where unknown */
   distances: (token, codes) => call('GET', '/admin/distances', { token, query: { codes: codes.join(',') }, quiet: true }),
   /** composition: { SLEEPER_CLASS: 10, AC3_TIER: 4, ... } */
@@ -225,3 +229,42 @@ export const SEAT_TYPES = [
   { id: 'EXECUTIVE_CHAIR_CAR', label: 'Executive chair car', short: 'EC', ac: true, seats: 56, prefix: 'E', berths: false, layout: '2+2 rows' },
   { id: 'AC1_TIER', label: 'AC first class', short: '1A', ac: true, seats: 18, prefix: 'H', berths: true, layout: 'cabins' },
 ];
+
+/**
+ * Reservation quotas (same rules as the backend's Quota.java).
+ * wl: the waitlist label prefix, or null when the quota has no waitlist.
+ */
+export const QUOTAS = [
+  { id: 'GN', label: 'General', wl: 'WL', max: 6, hint: '' },
+  { id: 'TQ', label: 'Tatkal', wl: 'TQWL', max: 4, hint: 'Opens the day before the journey: 10:00 for AC classes, 11:00 for Sleeper and second sitting. Extra Tatkal charge.' },
+  { id: 'PT', label: 'Premium Tatkal', wl: null, max: 4, hint: 'Opens with Tatkal. The fare rises as seats sell, and there is no waitlist.' },
+  { id: 'LD', label: 'Ladies', wl: null, max: 6, hint: 'For women, and children under 12 travelling with them. No waitlist.' },
+  { id: 'SS', label: 'Senior citizen', wl: null, max: 2, hint: 'Lower berths for men aged 60+ and women aged 45+, up to 2 per booking. No waitlist.' },
+];
+
+export const quotaOf = (id) => QUOTAS.find((q) => q.id === id) || QUOTAS[0];
+
+const BERTH_CLASSES = ['SLEEPER_CLASS', 'AC3_TIER', 'AC2_TIER', 'AC1_TIER', 'AC3_ECONOMY'];
+
+/** Does this class sell seats in this quota? */
+export function quotaOffered(quotaId, seatTypeId) {
+  if ((quotaId === 'TQ' || quotaId === 'PT') && seatTypeId === 'AC1_TIER') return false; // no Tatkal in 1A
+  if (quotaId === 'SS') return BERTH_CLASSES.includes(seatTypeId); // lower berths only
+  return true;
+}
+
+/** Why these passengers can't book in this quota, or '' — mirrors Quota.eligibility on the server */
+export function quotaProblem(quotaId, passengers) {
+  const q = quotaOf(quotaId);
+  if (passengers.length > q.max) return `${q.label} allows up to ${q.max} passengers per booking.`;
+  const ok = passengers.filter((p) => p.age !== '' && p.gender);
+  if (quotaId === 'LD') {
+    if (ok.some((p) => p.gender !== 'Female' && Number(p.age) >= 12))
+      return 'Ladies quota is for women, and children under 12 travelling with them.';
+    if (ok.length === passengers.length && !ok.some((p) => p.gender === 'Female' && Number(p.age) >= 12))
+      return 'Ladies quota needs at least one woman aged 12 or over.';
+  }
+  if (quotaId === 'SS' && ok.some((p) => (p.gender === 'Female' ? Number(p.age) < 45 : Number(p.age) < 60)))
+    return 'Senior citizen quota is for men aged 60+ and women aged 45+.';
+  return '';
+}

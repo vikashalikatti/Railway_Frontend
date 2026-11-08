@@ -7,6 +7,7 @@ import { focusFirstError, rules } from '../../validate.js';
 import { nextStep, STEPS } from './trainStore.js';
 import StationInput from '../../components/StationInput.jsx';
 import AddStationDialog from './AddStationDialog.jsx';
+import QuotaEditor from './QuotaEditor.jsx';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -92,6 +93,7 @@ export default function TrainBuilder({ train, onChange, takenNumbers = [] }) {
         })}
       </ol>
       {train && !current && <CoachTable coaches={train.coaches} />}
+      {train && !current && <QuotaEditor key={`${train.trainNumber}-${(train.coaches || []).length}`} trainNumber={train.trainNumber} />}
       </div>
     </div>
   );

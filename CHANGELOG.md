@@ -2,6 +2,20 @@
 
 Each version is delivered as `railway-frontend-vX.Y.Z.zip`.
 
+## v1.10.0 — 9 Nov 2026
+Quotas, Tatkal and charts. Use with backend v1.6.0.
+- Quota choice in the search form and the results bar: General, Tatkal, Premium Tatkal, Ladies,
+  Senior citizen, with each quota's rules shown under it.
+- Class tiles show availability, waitlist (WL / TQWL) and fare for the chosen quota; classes that
+  don't offer the quota (no Tatkal in 1A, no Senior citizen in chair cars) are greyed out.
+- "Tatkal opens on 9 Nov at 11:00" and "chart prepared" messages on the train card; booking is
+  disabled until it opens.
+- Booking form: max 4 passengers for Tatkal / Premium Tatkal, 2 for Senior citizen; Ladies and
+  Senior citizen rules checked as you type; no waitlist where the quota has none.
+- Tickets show the quota, "Chart prepared", TQWL numbers and "Not confirmed at charting".
+- Admin: quota split per class (Tatkal, Premium Tatkal, Ladies, Senior citizen %) under the train's
+  coaches, with how many seats each quota has now.
+
 ## v1.9.1 — 8 Nov 2026
 Fix: opening the app from a phone on the same Wi-Fi failed with "Something went wrong".
 - The dev and preview servers now listen on the network (`npm.cmd run dev` prints a "Network"
