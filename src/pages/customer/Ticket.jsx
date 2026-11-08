@@ -1,6 +1,7 @@
 import Badge from 'react-bootstrap/Badge';
 import Card from 'react-bootstrap/Card';
 import Table from 'react-bootstrap/Table';
+import { Link } from 'react-router-dom';
 import { BERTH_LABELS, quotaOf, SEAT_TYPES } from '../../api.js';
 import { rupees } from '../../components/ui.jsx';
 
@@ -69,10 +70,10 @@ export default function Ticket({ booking: b, actions, footer }) {
             <div className="d-flex flex-wrap gap-1 mt-1">
               {quota !== 'GN' && <span className="badge text-bg-warning">{quotaOf(quota).label} quota</span>}
               {chartDone && (
-                <span className="badge text-bg-secondary">
+                <Link to={`/chart?train=${b.trainNumber}&date=${b.journeyDate}`} className="badge text-bg-secondary text-decoration-none">
                   <i className="bi bi-clipboard-check me-1" aria-hidden="true" />
-                  Chart prepared
-                </span>
+                  Chart prepared: view vacancy
+                </Link>
               )}
             </div>
           </div>

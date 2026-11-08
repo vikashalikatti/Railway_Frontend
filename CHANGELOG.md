@@ -2,6 +2,16 @@
 
 Each version is delivered as `railway-frontend-vX.Y.Z.zip`.
 
+## v1.11.0 — 9 Nov 2026
+Chart & vacancy. Use with backend v1.7.0.
+- New "Chart & vacancy" page (menu and footer; no log-in needed): enter the train number and date
+  to see every coach's berths once the chart is prepared. Green: vacant all the way; dashed amber:
+  vacant for part of the route (hover or tap to see where); grey: booked. Pick your boarding and
+  getting-off stations to see the berths free for your journey. No passenger names or ages.
+- Tickets with a prepared chart link straight to their train's vacancy chart.
+- Admin: new "Charts" page with the same berth map plus every passenger (name, age, gender, PNR,
+  berth, journey, quota, status), with a filter. Works before and after the chart is prepared.
+
 ## v1.10.0 — 9 Nov 2026
 Quotas, Tatkal and charts. Use with backend v1.6.0.
 - Quota choice in the search form and the results bar: General, Tatkal, Premium Tatkal, Ladies,

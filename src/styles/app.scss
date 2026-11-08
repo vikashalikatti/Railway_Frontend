@@ -875,3 +875,88 @@ main.app-main {
     color: $primary !important;
   }
 }
+
+// Chart & vacancy berth map
+$berth-vacant: #1e7b45;
+$berth-partly: #c77700;
+$berth-booked: #c3cad6;
+
+.chart-coach {
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.6rem;
+  padding: 0.75rem;
+}
+
+.chart-bays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.chart-bay {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 0.4rem;
+  background: var(--bs-tertiary-bg);
+  max-width: calc(4 * 46px + 3 * 4px + 8px); // four berths a row, like one side of a bay
+}
+
+.berth {
+  width: 46px;
+  height: 40px;
+  border-radius: 0.35rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+  cursor: default;
+  font-size: 0.8rem;
+  border: 1px solid transparent;
+  b {
+    font-weight: 700;
+  }
+  small {
+    font-size: 0.65rem;
+    opacity: 0.85;
+  }
+  &.vacant {
+    background: $berth-vacant;
+    color: #fff;
+  }
+  &.partly {
+    background: #fff4e0;
+    color: #6b4000;
+    border-color: $berth-partly;
+    border-style: dashed;
+  }
+  &.booked {
+    background: $berth-booked;
+    color: #4a5466;
+  }
+  &:focus-visible {
+    outline: 3px solid var(--bs-primary);
+    outline-offset: 2px;
+  }
+}
+
+.berth-key {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  vertical-align: -2px;
+  margin-right: 4px;
+  &.vacant {
+    background: $berth-vacant;
+  }
+  &.partly {
+    background: #fff4e0;
+    border: 1px dashed $berth-partly;
+  }
+  &.booked {
+    background: $berth-booked;
+  }
+}

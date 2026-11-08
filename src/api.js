@@ -169,6 +169,8 @@ export const customerApi = {
       json: passengers,
     }),
   pnr: (token, pnr) => call('GET', `/customer/pnr/${pnr}`, { token }),
+  /** Chart & vacancy after the chart is prepared: berths only, no names. Public. date is yyyy-mm-dd. */
+  chart: (trainNo, date) => call('GET', `/customer/chart/${trainNo}`, { query: { date } }),
   myBookings: (token) => call('GET', '/customer/my_bookings', { token }),
   /** passengerIds: cancel only these; empty or missing cancels the whole booking */
   cancel: (token, pnr, passengerIds = []) => call('POST', `/customer/cancel/${pnr}`, { token, json: passengerIds }),
@@ -195,6 +197,8 @@ export const adminApi = {
   /** station: { code, name, city, state } */
   addStation: (token, station) => call('POST', '/admin/stations', { token, json: station }),
   /** Quota split per class: [{ seatType, tatkalPct, premiumPct, ladiesPct, seniorPct, saved, seats, seatsByQuota }] */
+  /** Reservation chart with every passenger; any time. date is yyyy-mm-dd. */
+  chart: (token, trainNo, date) => call('GET', `/admin/chart/${trainNo}`, { token, query: { date } }),
   quotas: (token, trainNo) => call('GET', `/admin/quotas/${trainNo}`, { token }),
   /** shares: { SLEEPER_CLASS: { tatkalPct, premiumPct, ladiesPct, seniorPct }, … } */
   saveQuotas: (token, trainNo, shares) => call('POST', `/admin/quotas/${trainNo}`, { token, json: shares }),
