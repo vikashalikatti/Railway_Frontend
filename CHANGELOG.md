@@ -2,6 +2,17 @@
 
 Each version is delivered as `railway-frontend-vX.Y.Z.zip`.
 
+## v1.12.0 — 9 Nov 2026
+Coaches drawn like the real thing. Works with backend v1.7.0 (no backend change).
+- Chart & vacancy and the admin chart draw every coach front to back with doors, toilets and the
+  aisle, in each class's real layout:
+  - Sleeper and AC 3 tier: compartments of 6 + 2 (1 LB, 2 MB, 3 UB facing 4 LB, 5 MB, 6 UB; side 7 SL, 8 SU)
+  - AC 3 economy: 6 + 3 (side lower, side middle, side upper)
+  - AC 2 tier: 4 + 2
+  - AC first class: cabins of 4 with a corridor (the last one a 2-berth coupe)
+  - Second sitting 3 + 3, AC chair car 3 + 2, Executive chair car 2 + 2 seats per row
+- Tickets: "Show where you sit" draws the coach and highlights the passengers' berths.
+
 ## v1.11.0 — 9 Nov 2026
 Chart & vacancy. Use with backend v1.7.0.
 - New "Chart & vacancy" page (menu and footer; no log-in needed): enter the train number and date

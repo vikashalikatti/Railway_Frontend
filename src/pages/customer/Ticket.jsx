@@ -1,7 +1,9 @@
 import Badge from 'react-bootstrap/Badge';
 import Card from 'react-bootstrap/Card';
 import Table from 'react-bootstrap/Table';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import CoachMap from '../../components/CoachMap.jsx';
 import { BERTH_LABELS, quotaOf, SEAT_TYPES } from '../../api.js';
 import { rupees } from '../../components/ui.jsx';
 
@@ -38,6 +40,15 @@ export default function Ticket({ booking: b, actions, footer }) {
   const quota = b.quota || 'GN';
   const wl = quotaOf(quota).wl || 'WL';
   const chartDone = b.chartStatus === 'PREPARED' || b.chartStatus === 'FINAL';
+  const [showCoach, setShowCoach] = useState(false);
+  // Confirmed passengers per coach, for "show in coach"
+  const byCoach = {};
+  b.passengers
+    .filter((p) => p.status === 'CNF' && p.coachNumber && p.seatNumber)
+    .forEach((p) => {
+      (byCoach[p.coachNumber] = byCoach[p.coachNumber] || {})[p.seatNumber] = p.name;
+    });
+  const coachNumbers = Object.keys(byCoach);
 
   return (
     <Card as="article" className="ticket-card shadow-sm overflow-hidden">
@@ -120,6 +131,28 @@ export default function Ticket({ booking: b, actions, footer }) {
           ))}
         </tbody>
       </Table>
+      {coachNumbers.length > 0 && (
+        <div className="border-top px-3 py-2">
+          <button type="button" className="btn btn-link btn-sm p-0" onClick={() => setShowCoach((v) => !v)} aria-expanded={showCoach}>
+            <i className={`bi ${showCoach ? 'bi-chevron-up' : 'bi-train-front'} me-1`} aria-hidden="true" />
+            {showCoach ? 'Hide coach layout' : `Show where you sit in ${coachNumbers.join(', ')}`}
+          </button>
+          {showCoach && (
+            <div className="coach-grid mt-2 mb-2">
+              {coachNumbers.map((c) => (
+                <CoachMap
+                  key={c}
+                  coachNumber={c}
+                  seatType={b.seatType}
+                  seats={cls?.seats || 72}
+                  caption="Your berths are highlighted"
+                  tile={(n) => (byCoach[c][n] ? { state: 'mine', title: byCoach[c][n] } : { state: 'plain' })}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {footer}
     </Card>
   );

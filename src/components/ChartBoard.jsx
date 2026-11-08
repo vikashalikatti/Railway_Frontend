@@ -1,29 +1,6 @@
 import { useMemo, useState } from 'react';
-import { BERTH_LABELS, SEAT_TYPES } from '../api.js';
-
-const SHORT = {
-  LOWER: 'LB',
-  MIDDLE: 'MB',
-  UPPER: 'UB',
-  SIDE_LOWER: 'SL',
-  SIDE_MIDDLE: 'SM',
-  SIDE_UPPER: 'SU',
-  WINDOW: 'W',
-  MIDDLE_SEAT: 'M',
-  AISLE: 'A',
-};
-
-/** Berths per bay (or seats per row), so the map looks like the coach */
-const BAY = {
-  SLEEPER_CLASS: 8,
-  AC3_TIER: 8,
-  AC3_ECONOMY: 9,
-  AC2_TIER: 6,
-  AC1_TIER: 4,
-  SECOND_CLASS: 6,
-  AC_CHAIR_CAR: 5,
-  EXECUTIVE_CHAIR_CAR: 4,
-};
+import { SEAT_TYPES } from '../api.js';
+import CoachMap from './CoachMap.jsx';
 
 /** Parts of [from, to) not covered by the booked stretches */
 export function freeStretches(booked, from, to) {
@@ -122,44 +99,36 @@ export default function ChartBoard({ view, journey }) {
       <p className="small text-secondary mb-0">
         {journey ? `${name(from)} to ${name(to)}: ` : 'Whole route: '}
         {counts[cls.seatType]?.vacant ?? 0} berths vacant, {counts[cls.seatType]?.partly ?? 0} vacant for part of the way. Hover or tap a
-        berth to see where it’s free.
+        berth to see where it’s free. Each coach is drawn front to back, with the aisle down the middle.
       </p>
 
-      {cls.coaches.map((coach) => {
-        const bay = BAY[cls.seatType] || 8;
-        const bays = [];
-        for (let i = 0; i < coach.berths.length; i += bay) bays.push(coach.berths.slice(i, i + bay));
-        const vacantHere = coach.berths.filter((b) => berthState(b.booked, from, to).state === 'vacant').length;
-        return (
-          <section key={coach.coachNumber} className="chart-coach" aria-label={`Coach ${coach.coachNumber}`}>
-            <h3 className="h6 mb-2">
-              {coach.coachNumber} <span className="small fw-normal text-secondary">{vacantHere} vacant</span>
-            </h3>
-            <div className="chart-bays">
-              {bays.map((group, gi) => (
-                <div className="chart-bay" key={gi}>
-                  {group.map((b) => {
-                    const { state, free } = berthState(b.booked, from, to);
-                    const where =
-                      state === 'vacant'
-                        ? `vacant ${journey ? 'for your journey' : 'for the whole route'}`
-                        : state === 'booked'
-                          ? 'booked'
-                          : `vacant ${free.map((f) => `${name(f.from)} to ${name(f.to)}`).join(', ')}`;
-                    const label = `${coach.coachNumber} ${b.seatNumber} ${BERTH_LABELS[b.berthType] || b.berthType}: ${where}`;
-                    return (
-                      <span key={b.seatNumber} className={`berth ${state}`} title={label} aria-label={label} tabIndex={0}>
-                        <b>{b.seatNumber}</b>
-                        <small>{SHORT[b.berthType] || ''}</small>
-                      </span>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </section>
-        );
-      })}
+      <div className="coach-grid">
+        {cls.coaches.map((coach) => {
+          const bySeat = Object.fromEntries(coach.berths.map((b) => [b.seatNumber, b]));
+          const vacantHere = coach.berths.filter((b) => berthState(b.booked, from, to).state === 'vacant').length;
+          return (
+            <CoachMap
+              key={coach.coachNumber}
+              coachNumber={coach.coachNumber}
+              seatType={cls.seatType}
+              seats={coach.berths.length}
+              caption={`${vacantHere} vacant`}
+              tile={(n) => {
+                const b = bySeat[n];
+                if (!b) return { state: 'plain' };
+                const { state, free } = berthState(b.booked, from, to);
+                const title =
+                  state === 'vacant'
+                    ? `vacant ${journey ? 'for your journey' : 'for the whole route'}`
+                    : state === 'booked'
+                      ? 'booked'
+                      : `vacant ${free.map((f) => `${name(f.from)} to ${name(f.to)}`).join(', ')}`;
+                return { state, title };
+              }}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
