@@ -1,7 +1,10 @@
 import Badge from 'react-bootstrap/Badge';
 import Card from 'react-bootstrap/Card';
 import Table from 'react-bootstrap/Table';
-import { BERTH_LABELS, SEAT_TYPES } from '../../api.js';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import CoachMap from '../../components/CoachMap.jsx';
+import { BERTH_LABELS, quotaOf, SEAT_TYPES } from '../../api.js';
 import { rupees } from '../../components/ui.jsx';
 
 const STATUS = {
@@ -11,9 +14,12 @@ const STATUS = {
   CANCELLED: { label: 'Cancelled', bg: 'danger', icon: 'bi-x-circle' },
 };
 
-export function passengerStatus(p) {
+/** "CNF S2/33/Lower", "TQWL 3", "Not confirmed at charting" or "Cancelled" */
+export function passengerStatus(p, quota = 'GN') {
+  const wl = quotaOf(quota).wl || 'WL';
   if (p.status === 'CNF') return `CNF ${p.coachNumber}/${p.seatNumber}/${BERTH_LABELS[p.berthType] || p.berthType}`;
-  if (p.status === 'WL') return `WL ${p.currentWlPosition ?? p.wlNumber}`;
+  if (p.status === 'WL') return `${wl} ${p.currentWlPosition ?? p.wlNumber}`;
+  if (p.cancelReason === 'CHART') return 'Not confirmed at charting';
   return 'Cancelled';
 }
 
@@ -31,6 +37,18 @@ export default function Ticket({ booking: b, actions, footer }) {
     year: 'numeric',
   });
   const active = b.passengers.filter((p) => p.status !== 'CAN').length;
+  const quota = b.quota || 'GN';
+  const wl = quotaOf(quota).wl || 'WL';
+  const chartDone = b.chartStatus === 'PREPARED' || b.chartStatus === 'FINAL';
+  const [showCoach, setShowCoach] = useState(false);
+  // Confirmed passengers per coach, for "show in coach"
+  const byCoach = {};
+  b.passengers
+    .filter((p) => p.status === 'CNF' && p.coachNumber && p.seatNumber)
+    .forEach((p) => {
+      (byCoach[p.coachNumber] = byCoach[p.coachNumber] || {})[p.seatNumber] = p.name;
+    });
+  const coachNumbers = Object.keys(byCoach);
 
   return (
     <Card as="article" className="ticket-card shadow-sm overflow-hidden">
@@ -59,6 +77,15 @@ export default function Ticket({ booking: b, actions, footer }) {
             <div className="fw-bold text-dark">{date}</div>
             <div className="small text-secondary">
               {cls ? `${cls.label} (${cls.short})` : b.seatType}, {Math.round(b.distanceKm)} km
+            </div>
+            <div className="d-flex flex-wrap gap-1 mt-1">
+              {quota !== 'GN' && <span className="badge text-bg-warning">{quotaOf(quota).label} quota</span>}
+              {chartDone && (
+                <Link to={`/chart?train=${b.trainNumber}&date=${b.journeyDate}`} className="badge text-bg-secondary text-decoration-none">
+                  <i className="bi bi-clipboard-check me-1" aria-hidden="true" />
+                  Chart prepared: view vacancy
+                </Link>
+              )}
             </div>
           </div>
           <div className="col-5 col-md-3 text-end">
@@ -91,16 +118,41 @@ export default function Ticket({ booking: b, actions, footer }) {
               </td>
               <td>{p.age}</td>
               <td>
-                <span className={`pax-status ps-${p.status.toLowerCase()}`}>{passengerStatus(p)}</span>
+                <span className={`pax-status ps-${p.status.toLowerCase()}`}>{passengerStatus(p, quota)}</span>
                 {p.status === 'WL' && p.currentWlPosition != null && p.wlNumber !== p.currentWlPosition && (
-                  <div className="small text-secondary">Booked at WL {p.wlNumber}</div>
+                  <div className="small text-secondary">
+                    Booked at {wl} {p.wlNumber}
+                  </div>
                 )}
+                {p.status === 'CNF' && p.wlNumber != null && <div className="small text-secondary">Booked at {wl} {p.wlNumber}</div>}
               </td>
               {actions && <td className="text-end pe-3">{actions(p)}</td>}
             </tr>
           ))}
         </tbody>
       </Table>
+      {coachNumbers.length > 0 && (
+        <div className="border-top px-3 py-2">
+          <button type="button" className="btn btn-link btn-sm p-0" onClick={() => setShowCoach((v) => !v)} aria-expanded={showCoach}>
+            <i className={`bi ${showCoach ? 'bi-chevron-up' : 'bi-train-front'} me-1`} aria-hidden="true" />
+            {showCoach ? 'Hide coach layout' : `Show where you sit in ${coachNumbers.join(', ')}`}
+          </button>
+          {showCoach && (
+            <div className="coach-grid mt-2 mb-2">
+              {coachNumbers.map((c) => (
+                <CoachMap
+                  key={c}
+                  coachNumber={c}
+                  seatType={b.seatType}
+                  seats={cls?.seats || 72}
+                  caption="Your berths are highlighted"
+                  tile={(n) => (byCoach[c][n] ? { state: 'mine', title: byCoach[c][n] } : { state: 'plain' })}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {footer}
     </Card>
   );

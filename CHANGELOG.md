@@ -2,6 +2,48 @@
 
 Each version is delivered as `railway-frontend-vX.Y.Z.zip`.
 
+## v1.13.0 — 9 Nov 2026
+Coach changes by date. Use with backend v1.8.0.
+- Admin, under a train's coaches: "Coach changes" to add coaches of any class from a date, for good
+  or until an end date (rush days), and to remove chosen coaches from a date. The server's reason
+  is shown if confirmed passengers are still in a coach.
+- Coaches with dates show them ("12 Nov 2026 to 20 Nov 2026"); the Coaches step counts today's seats.
+
+## v1.12.0 — 9 Nov 2026
+Coaches drawn like the real thing. Works with backend v1.7.0 (no backend change).
+- Chart & vacancy and the admin chart draw every coach front to back with doors, toilets and the
+  aisle, in each class's real layout:
+  - Sleeper and AC 3 tier: compartments of 6 + 2 (1 LB, 2 MB, 3 UB facing 4 LB, 5 MB, 6 UB; side 7 SL, 8 SU)
+  - AC 3 economy: 6 + 3 (side lower, side middle, side upper)
+  - AC 2 tier: 4 + 2
+  - AC first class: cabins of 4 with a corridor (the last one a 2-berth coupe)
+  - Second sitting 3 + 3, AC chair car 3 + 2, Executive chair car 2 + 2 seats per row
+- Tickets: "Show where you sit" draws the coach and highlights the passengers' berths.
+
+## v1.11.0 — 9 Nov 2026
+Chart & vacancy. Use with backend v1.7.0.
+- New "Chart & vacancy" page (menu and footer; no log-in needed): enter the train number and date
+  to see every coach's berths once the chart is prepared. Green: vacant all the way; dashed amber:
+  vacant for part of the route (hover or tap to see where); grey: booked. Pick your boarding and
+  getting-off stations to see the berths free for your journey. No passenger names or ages.
+- Tickets with a prepared chart link straight to their train's vacancy chart.
+- Admin: new "Charts" page with the same berth map plus every passenger (name, age, gender, PNR,
+  berth, journey, quota, status), with a filter. Works before and after the chart is prepared.
+
+## v1.10.0 — 9 Nov 2026
+Quotas, Tatkal and charts. Use with backend v1.6.0.
+- Quota choice in the search form and the results bar: General, Tatkal, Premium Tatkal, Ladies,
+  Senior citizen, with each quota's rules shown under it.
+- Class tiles show availability, waitlist (WL / TQWL) and fare for the chosen quota; classes that
+  don't offer the quota (no Tatkal in 1A, no Senior citizen in chair cars) are greyed out.
+- "Tatkal opens on 9 Nov at 11:00" and "chart prepared" messages on the train card; booking is
+  disabled until it opens.
+- Booking form: max 4 passengers for Tatkal / Premium Tatkal, 2 for Senior citizen; Ladies and
+  Senior citizen rules checked as you type; no waitlist where the quota has none.
+- Tickets show the quota, "Chart prepared", TQWL numbers and "Not confirmed at charting".
+- Admin: quota split per class (Tatkal, Premium Tatkal, Ladies, Senior citizen %) under the train's
+  coaches, with how many seats each quota has now.
+
 ## v1.9.1 — 8 Nov 2026
 Fix: opening the app from a phone on the same Wi-Fi failed with "Something went wrong".
 - The dev and preview servers now listen on the network (`npm.cmd run dev` prints a "Network"

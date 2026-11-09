@@ -29,6 +29,7 @@ export default function Search() {
     to: params.get('to') || '',
     date: params.get('date') || todayIso(),
     cls: params.get('cls') || '',
+    quota: params.get('quota') || 'GN',
     fl: params.get('fl') || '',
     tl: params.get('tl') || '',
   };
@@ -141,7 +142,7 @@ export default function Search() {
     <>
       <div className="modify-bar py-3">
         <div className="container">
-          <SearchCard key={key + q.cls} initial={q} onSearch={modify} variant="bar" busy={busy} />
+          <SearchCard key={key + q.cls + q.quota} initial={q} onSearch={modify} variant="bar" busy={busy} />
         </div>
       </div>
 
@@ -259,13 +260,14 @@ export default function Search() {
 
             {shown.map(({ train, j, match }) => (
               <TrainCard
-                key={train.trainNumber}
+                key={`${train.trainNumber}-${q.quota}`}
                 train={train}
                 journey={j}
                 date={q.date}
                 from={match.fromStation}
                 to={match.toStation}
                 preferredClass={q.cls}
+                quota={q.quota}
               />
             ))}
           </section>
