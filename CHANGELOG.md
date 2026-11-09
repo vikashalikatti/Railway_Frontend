@@ -2,6 +2,11 @@
 
 Each version is delivered as `railway-frontend-vX.Y.Z.zip`.
 
+## v1.15.1 — 9 Nov 2026
+- Runs on Windows PCs where Smart App Control or a company policy blocks unsigned native files
+  ("An Application Control policy has blocked this file … rollup.win32-x64-msvc.node"): Rollup
+  and esbuild now use their WebAssembly builds (package.json "overrides"). No code changes.
+
 ## v1.15.0 — 9 Nov 2026
 Safer seating, boarding help, and importing trains in bulk. Use with backend v1.10.0.
 - Booking: a woman travelling alone sees that she'll be seated near other women where possible

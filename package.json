@@ -1,7 +1,7 @@
 {
   "name": "railway-frontend",
   "private": true,
-  "version": "1.15.0",
+  "version": "1.15.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,5 +20,9 @@
     "@vitejs/plugin-react": "^4.3.4",
     "sass": "1.77.8",
     "vite": "^5.4.11"
+  },
+  "overrides": {
+    "rollup": "npm:@rollup/wasm-node@^4.68.0",
+    "esbuild": "npm:esbuild-wasm@0.21.5"
   }
 }
