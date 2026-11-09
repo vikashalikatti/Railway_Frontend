@@ -41,6 +41,9 @@ export default function Search() {
   const [classFilter, setClassFilter] = useState(q.cls ? [q.cls] : []);
   const [typeFilter, setTypeFilter] = useState([]);
   const [depFilter, setDepFilter] = useState([]);
+  const [arrFilter, setArrFilter] = useState([]);
+  const [acOnly, setAcOnly] = useState(false);
+  const [seatsOnly, setSeatsOnly] = useState(false);
   const [sort, setSort] = useState('dep');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -94,7 +97,7 @@ export default function Search() {
       (trains || []).map((m) => ({
         train: m.train,
         match: m,
-        j: describeJourney(m.train, m.fromStation, m.toStation, q.date, m.fromStop, m.toStop),
+        j: describeJourney(m.train, m.fromStation, m.toStation, q.date, m.fromStop, m.toStop, m),
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [trains, key]
@@ -109,13 +112,23 @@ export default function Search() {
       if (!depFilter.length || j.depMin == null) return true;
       return TIME_SLOTS.some((s) => depFilter.includes(s.id) && j.depMin >= s.from && j.depMin < s.to);
     })
+    .filter(({ j }) => {
+      if (!arrFilter.length || j.arrMin == null) return true;
+      return TIME_SLOTS.some((s) => arrFilter.includes(s.id) && j.arrMin >= s.from && j.arrMin < s.to);
+    })
+    .filter(({ j }) => !acOnly || j.classes.some((c) => c.ac))
+    .filter(({ j }) => {
+      if (!seatsOnly || !j.available) return true;
+      const wanted = j.classes.filter((c) => (!acOnly || c.ac) && (!classFilter.length || classFilter.includes(c.id)));
+      return wanted.some((c) => (j.available[c.id] || 0) > 0);
+    })
     .sort((a, b) => {
       const k = sort === 'dur' ? 'durationMin' : sort === 'arr' ? 'arrMin' : 'depMin';
       return (a.j[k] ?? 9999) - (b.j[k] ?? 9999);
     });
 
   const toggle = (list, set) => (id) => set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
-  const filtersOn = classFilter.length + typeFilter.length + depFilter.length;
+  const filtersOn = classFilter.length + typeFilter.length + depFilter.length + arrFilter.length + (acOnly ? 1 : 0) + (seatsOnly ? 1 : 0);
 
   const niceDate = new Date(q.date + 'T00:00').toLocaleDateString('en-IN', {
     weekday: 'short',
@@ -128,6 +141,9 @@ export default function Search() {
     setClassFilter([]);
     setTypeFilter([]);
     setDepFilter([]);
+    setArrFilter([]);
+    setAcOnly(false);
+    setSeatsOnly(false);
   };
 
   const checkGroup = (legend, items, list, set) => (
@@ -170,6 +186,17 @@ export default function Search() {
                     </button>
                   )}
                 </div>
+                <fieldset className="mb-3">
+                  <legend className="visually-hidden">Quick filters</legend>
+                  <Form.Check id="f-ac" type="switch" label="AC classes only" checked={acOnly} onChange={(e) => setAcOnly(e.target.checked)} />
+                  <Form.Check
+                    id="f-seats"
+                    type="switch"
+                    label="Berths available now"
+                    checked={seatsOnly}
+                    onChange={(e) => setSeatsOnly(e.target.checked)}
+                  />
+                </fieldset>
                 {checkGroup(
                   'Journey class',
                   SEAT_TYPES.map((t) => ({ id: t.id, label: `${t.label} (${t.short})` })),
@@ -184,6 +211,7 @@ export default function Search() {
                     setTypeFilter
                   )}
                 {checkGroup('Departure time', TIME_SLOTS, depFilter, setDepFilter)}
+                {checkGroup('Arrival time', TIME_SLOTS, arrFilter, setArrFilter)}
               </Card.Body>
             </Card>
           </aside>

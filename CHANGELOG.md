@@ -2,6 +2,32 @@
 
 Each version is delivered as `railway-frontend-vX.Y.Z.zip`.
 
+## v1.16.1 — 9 Nov 2026
+- Fix: the e-ticket check page had taken the /verify address, so the email OTP page after sign-up
+  showed the ticket check instead. The ticket check is now at /ticket-check (QR codes point there).
+- README: what the app does, every screen, how to run it, test payments, project structure.
+
+## v1.16.0 — 9 Nov 2026
+Use with backend v1.11.0. New libraries: jspdf and qrcode (run npm.cmd install).
+- **Pay before booking**: a test payment window (card with OTP 123456, UPI, net banking) opens from
+  "Pay and book". No real money moves; the window lists the test card and the failure cases.
+- **RAC**: classes show "RAC 3" when berths are full; "Book on RAC"; tickets show RAC numbers and
+  the shared berth after the chart. Quota editor: RAC berths per coach and a Divyangjan share.
+- **Cancellation charges**: before cancelling, a table shows each passenger's paid amount, charge,
+  refund and the rule; cancelled passengers show their refund.
+- **Day 2/3**: search results show "Day 2 of the run" and real journey times across midnight;
+  tickets show the boarding date; the train builder lets the admin set the day of a stop (worked out
+  from the times otherwise).
+- **Vikalp** option on waitlisted bookings; tickets say when it's on or where the booking moved.
+- **Divyangjan quota**: tick the card holder and enter the card number; the other passenger is the escort.
+- **E-ticket PDF** with a QR code (Download e-ticket on each ticket); /verify shows a ticket checker
+  whether a scanned ticket is genuine and its live status.
+- **Timetable** page (/timetable): every stop, times, day, halt and km.
+- **Search filters**: AC classes only, berths available now, arrival time; free berths per class on the tiles.
+- **Waitlist chance** on availability and tickets.
+- **Admin**: Customers (search, bookings, block / unblock) and Audit log pages.
+- The menu collapses below 1200px wide so it never wraps.
+
 ## v1.15.1 — 9 Nov 2026
 - Runs on Windows PCs where Smart App Control or a company policy blocks unsigned native files
   ("An Application Control policy has blocked this file … rollup.win32-x64-msvc.node"): Rollup

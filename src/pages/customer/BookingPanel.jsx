@@ -7,6 +7,7 @@ import {
   canAskForHelp,
   canHelp,
   customerApi,
+  RAC_CLASSES,
   extrasFare,
   isChild,
   isInfant,
@@ -22,9 +23,16 @@ import { Button, Input, Note, Select, rupees } from '../../components/ui.jsx';
 import { check, focusFirstError, rules } from '../../validate.js';
 import { digits } from '../../useForm.js';
 import Ticket from './Ticket.jsx';
+import PaymentDialog from '../../components/PaymentDialog.jsx';
 
-const blank = () => ({ name: '', age: '', gender: '', berthPreference: '', noBerth: false, meal: 'NONE', bedroll: false, needsAssistance: false, helper: false });
+const blank = () => ({ name: '', age: '', gender: '', berthPreference: '', noBerth: false, meal: 'NONE', bedroll: false, needsAssistance: false, helper: false, divyang: false, concessionCard: '' });
 const MAX_INFANTS = 2;
+
+/** Will some passengers get RAC or the waitlist? */
+function onWaitlist_(availability, passengers) {
+  const needs = passengers.filter((p) => !(p.age !== '' && Number(p.age) < 5) && !(p.noBerth && Number(p.age) < 12)).length;
+  return availability.available < needs;
+}
 
 // Same checks as signup, worded for a passenger
 const reword = (rule, from, to) => (v) => rule(v).replace(from, to);
@@ -51,6 +59,10 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
   const infants = passengers.filter((p) => isInfant(p.age)).length;
   const onWaitlist = availability && availability.available < berthCount;
   const [saved, setSaved] = useState([]);
+  const [paying, setPaying] = useState(false);
+  const [vikalp, setVikalp] = useState(false);
+  // Vikalp: General / Tatkal tickets that may end up waitlisted can move to another train at the chart
+  const vikalpOffered = !!availability && !!q.wl && !availability.chartPrepared && onWaitlist_(availability, passengers);
   const [saveNew, setSaveNew] = useState(true);
 
   useEffect(() => {
@@ -89,6 +101,9 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
   const rulesProblem =
     quotaProblem(quota, passengers.filter((p) => !isInfant(p.age))) ||
     (infants > MAX_INFANTS ? `Up to ${MAX_INFANTS} children under 5 can travel on one booking.` : '') ||
+    (quota === 'PH' && passengers.some((p) => p.divyang && !/^[A-Za-z0-9/-]{6,20}$/.test(p.concessionCard || ''))
+      ? 'Enter the concession card number (6 to 20 letters and digits) for each Divyangjan passenger.'
+      : '') ||
     (passengers.length > 0 && passengers.every((p) => p.age !== '') && berthCount === 0
       ? 'At least one passenger needs a berth: children without a berth travel with someone who has one.'
       : '');
@@ -128,6 +143,11 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
       return;
     }
     if (quotaProblem(quota, passengers) || tooMany) return; // shown above the passengers
+    setPaying(true); // pay first; the booking is made once the payment is through (book below)
+  };
+
+  const book = (payment) => {
+    setPaying(false);
     run(async () => {
       const res = await customerApi.book(session.token, {
         trainNo: train.trainNumber,
@@ -136,6 +156,8 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
         from,
         to,
         quota,
+        paymentId: payment.id,
+        vikalp: vikalp && vikalpOffered,
         passengers: passengers.map((p) => ({
           name: p.name.trim(),
           age: Number(p.age),
@@ -146,6 +168,8 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
           bedroll: !!p.bedroll && bedrollOffered(seatClass.id),
           needsAssistance: !!p.needsAssistance && canAskForHelp(p.age, berthCount) && !withoutBerth(p),
           helper: !!p.helper && canHelp(p.age) && !asksForHelp,
+          divyang: quota === 'PH' && !!p.divyang,
+          concessionCard: quota === 'PH' && p.divyang ? p.concessionCard.trim() : null,
         })),
       });
       setResult(res.data2);
@@ -173,7 +197,7 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
   if (result) {
     return (
       <div className="border-top p-3 p-md-4 vstack gap-3">
-        <Ticket booking={result} />
+        <Ticket booking={result} token={session.token} />
         <div className="d-flex flex-wrap gap-2">
           <Button as={Link} variant="primary" to="/bookings">
             <i className="bi bi-ticket-perforated" aria-hidden="true" />
@@ -214,7 +238,9 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
         <Note tone="warn">
           {availability.available > 0
             ? `Only ${availability.available} ${availability.available === 1 ? 'seat is' : 'seats are'} left. The other passengers will be waitlisted and confirmed automatically if someone cancels.`
-            : `No seats are left in ${quota === 'GN' ? 'this class' : `${q.label} quota`}. Passengers will be waitlisted (${q.wl}) and confirmed automatically if someone cancels.`}
+            : `No seats are left in ${quota === 'GN' ? 'this class' : `${q.label} quota`}. Passengers ${
+                RAC_CLASSES.includes(seatClass.id) && (quota === 'GN' || quota === 'TQ') ? 'get RAC while it lasts, then are' : 'will be'
+              } waitlisted (${q.wl}) and confirmed automatically if someone cancels.`}
         </Note>
       )}
 
@@ -347,6 +373,25 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
                 <span className="form-check-label">Needs boarding help (we’ll find a helper on the coach)</span>
               </label>
             )}
+            {quota === 'PH' && (
+              <span className="d-flex flex-wrap align-items-center gap-2">
+                <label className="form-check mb-0">
+                  <input className="form-check-input" type="checkbox" checked={!!p.divyang} onChange={(e) => update(i, 'divyang', e.target.checked)} />
+                  <span className="form-check-label">Divyangjan (concession card)</span>
+                </label>
+                {p.divyang && (
+                  <input
+                    className="form-control form-control-sm w-auto"
+                    aria-label={`Passenger ${i + 1} concession card number`}
+                    placeholder="Card number"
+                    maxLength={20}
+                    value={p.concessionCard}
+                    onChange={(e) => update(i, 'concessionCard', e.target.value.replace(/[^A-Za-z0-9/-]/g, ''))}
+                  />
+                )}
+                {!p.divyang && <span className="text-secondary">Escort</span>}
+              </span>
+            )}
             {canHelp(p.age) && !asksForHelp && (
               <label className="form-check mb-0" title="We seat you near a senior travelling alone who asked for help boarding">
                 <input className="form-check-input" type="checkbox" checked={!!p.helper} onChange={(e) => update(i, 'helper', e.target.checked)} />
@@ -368,6 +413,24 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
           <i className="bi bi-people me-1" aria-hidden="true" />
           Travelling alone: where we can, we seat you in a bay with other women. No one is shown who sits where.
         </p>
+      )}
+
+      {availability?.status?.startsWith('RAC') && (
+        <p className="small mb-0">
+          <i className="bi bi-people-fill me-1 text-accent" aria-hidden="true" />
+          No berth is free, so passengers get <strong>RAC</strong>: you can travel, sharing a side-lower berth with one other
+          passenger, and get a full berth as soon as someone cancels.
+        </p>
+      )}
+
+      {vikalpOffered && (
+        <label className="form-check mb-0 vikalp-option">
+          <input className="form-check-input" type="checkbox" checked={vikalp} onChange={(e) => setVikalp(e.target.checked)} />
+          <span className="form-check-label">
+            <strong>Vikalp</strong>: if my ticket is still waitlisted when the chart is prepared, move us to another train on this route
+            leaving within 12 hours that has berths. No extra charge.
+          </span>
+        </label>
       )}
 
       {rulesProblem && (
@@ -394,10 +457,11 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
         <div className="d-flex align-items-center gap-3">
           {fareTotal != null && <span className="fs-4 fw-bold">{rupees(fareTotal)}</span>}
           <Button busy={busy} busyText="Booking…" type="submit" variant="accent" size="lg" disabled={!!rulesProblem || tooMany}>
-            Book {passengers.length === 1 ? 'ticket' : `${passengers.length} tickets`}
+            Pay and book {passengers.length === 1 ? 'ticket' : `${passengers.length} tickets`}
           </Button>
         </div>
       </div>
+      <PaymentDialog show={paying} amount={fareTotal || 0} onPaid={book} onCancel={() => setPaying(false)} />
     </form>
   );
 }

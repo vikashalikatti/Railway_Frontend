@@ -4,7 +4,7 @@ import { customerApi } from '../../api.js';
 import { useAction, useSession } from '../../session.jsx';
 import Card from 'react-bootstrap/Card';
 import Nav from 'react-bootstrap/Nav';
-import { Button } from '../../components/ui.jsx';
+import { rupees, Button } from '../../components/ui.jsx';
 import useConfirm from '../../components/useConfirm.jsx';
 import Ticket from './Ticket.jsx';
 
@@ -38,9 +38,53 @@ export default function MyBookings() {
 
   const cancel = async (b, p) => {
     const who = p ? `${p.name}’s ticket` : `the whole booking (PNR ${b.bookingId})`;
+    // what the cancellation rules would refund right now
+    let preview = null;
+    try {
+      preview = (await customerApi.cancelPreview(session.token, b.bookingId, p ? [p.id] : [])).data2 || null;
+    } catch {
+      preview = null; // the server checks again when cancelling
+    }
+    const refund = preview ? preview.reduce((sum, r) => sum + r.refund, 0) : null;
+    const charge = preview ? preview.reduce((sum, r) => sum + r.charge, 0) : null;
     const ok = await confirm({
       title: `Cancel ${who}?`,
-      body: 'Any seat you give up goes to the next person on the waitlist. This can’t be undone.',
+      body: (
+        <div className="vstack gap-2">
+          {preview && (
+            <>
+              <table className="table table-sm mb-0 refund-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Passenger</th>
+                    <th scope="col" className="text-end">Paid</th>
+                    <th scope="col" className="text-end">Charge</th>
+                    <th scope="col" className="text-end">Refund</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.map((r) => (
+                    <tr key={r.passengerId}>
+                      <td>
+                        {r.name}
+                        <div className="small text-secondary">{r.rule}</div>
+                      </td>
+                      <td className="text-end">{rupees(r.paid)}</td>
+                      <td className="text-end">{rupees(r.charge)}</td>
+                      <td className="text-end fw-semibold">{rupees(r.refund)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mb-0">
+                You get <strong>{rupees(refund)}</strong> back{charge > 0 ? ` (cancellation charges ${rupees(charge)})` : ''}, to the
+                card, UPI or bank you paid with.
+              </p>
+            </>
+          )}
+          <p className="mb-0 text-secondary">Any berth you give up goes to RAC or the waitlist. This can’t be undone.</p>
+        </div>
+      ),
       confirmLabel: p ? `Cancel ${p.name}’s ticket` : 'Cancel booking',
       danger: true,
     });
@@ -123,12 +167,13 @@ export default function MyBookings() {
       )}
 
       {shown.map((b) => {
-        const canCancel = b.journeyDate >= today && b.status !== 'CANCELLED';
+        const canCancel = (b.boardingDate || b.journeyDate) >= today && b.status !== 'CANCELLED';
         const activeCount = b.passengers.filter((p) => p.status !== 'CAN').length;
         return (
           <Ticket
             key={b.bookingId}
             booking={b}
+            token={session.token}
             actions={
               canCancel && activeCount > 1
                 ? (p) =>

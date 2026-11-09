@@ -10,7 +10,7 @@ import { resultsUrl } from './Home.jsx';
 export default function Connections({ connections, date, quota }) {
   if (!connections?.length) return null;
   const legInfo = (m) => {
-    const j = describeJourney(m.train, m.fromStation, m.toStation, date, m.fromStop, m.toStop);
+    const j = describeJourney(m.train, m.fromStation, m.toStation, m.boardingDate || date, m.fromStop, m.toStop, m);
     return { ...m, j };
   };
   return (
@@ -22,7 +22,13 @@ export default function Connections({ connections, date, quota }) {
       {connections.map((c, i) => {
         const a = legInfo(c.first);
         const b = legInfo(c.second);
-        const total = a.j.depMin != null && b.j.arrMin != null ? b.j.arrMin - a.j.depMin : null;
+        // whole journey, across midnight if need be (the server sends exact times)
+        const total =
+          a.departs && b.arrives
+            ? Math.round((new Date(b.arrives) - new Date(a.departs)) / 60000)
+            : a.j.depMin != null && b.j.arrMin != null
+              ? b.j.arrMin - a.j.depMin
+              : null;
         return (
           <Card key={i} className="shadow-sm">
             <Card.Body className="vstack gap-2">
@@ -45,7 +51,7 @@ export default function Connections({ connections, date, quota }) {
                   </div>
                   <Link
                     className="btn btn-sm btn-outline-primary"
-                    to={resultsUrl({ from: leg.fromStation, to: leg.toStation, date, quota })}
+                    to={resultsUrl({ from: leg.fromStation, to: leg.toStation, date: leg.boardingDate || date, quota })}
                   >
                     Book {k === 0 ? 'first' : 'second'} train
                   </Link>

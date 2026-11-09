@@ -86,7 +86,10 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
           <div className="tc-point">
             <strong>{j.depTime}</strong>
             <span className="tc-station">{boardName}</span>
-            <span>{formatDay(j.depDate)}</span>
+            <span>
+              {formatDay(j.depDate)}
+              {j.boardDay > 1 && <span className="badge text-bg-light border ms-1">Day {j.boardDay} of the run</span>}
+            </span>
           </div>
           <div className="tc-dur">
             <span>{durationLabel(j.durationMin)}</span>
@@ -130,12 +133,17 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
                   <span className="small text-primary d-inline-flex align-items-center gap-1">
                     <Spinner animation="border" size="sm" aria-hidden="true" /> Checking…
                   </span>
+                ) : a === undefined && j.available && j.available[c.id] != null && quota === 'GN' ? (
+                  <span className={`ct-status ${j.available[c.id] > 0 ? 'ok' : 'wl'}`}>
+                    {j.available[c.id] > 0 ? `${j.available[c.id]} free` : 'RAC / WL'}
+                  </span>
                 ) : a === undefined ? (
                   <span className="ct-check">Check availability</span>
                 ) : (
                   <span className={`ct-status ${tone}`}>{a.status}</span>
                 )}
                 {a && <span className="ct-fare">{rupees(a.fare)}</span>}
+                {a?.confirmChance && <span className="ct-chance">Chance: {a.confirmChance}</span>}
               </button>
             );
           })}
@@ -153,7 +161,7 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
                   {quota !== 'GN' ? `, ${q.label} quota` : ''}
                   {quota === 'TQ' ? ' (includes the Tatkal charge)' : ''}
                   {quota === 'PT' ? ' (Premium Tatkal: the fare rises as seats sell)' : ''}
-                  {willWait ? '. You’ll join the waitlist.' : ''}
+                  {willWait ? (info.status.startsWith('RAC') ? '. You’ll get RAC.' : '. You’ll join the waitlist.') : ''}
                 </span>
                 {info.note && (
                   <div className="small text-danger mt-1" role="status">
@@ -178,7 +186,7 @@ export default function TrainCard({ train, journey: j, date, from, to, preferred
               {info ? 'Refresh' : 'Check availability'}
             </Button>
             <Button variant="accent" disabled={!canBook} onClick={() => setBooking(true)}>
-              {willWait ? 'Book on waitlist' : 'Book now'}
+              {willWait ? (info.status.startsWith('RAC') ? 'Book on RAC' : 'Book on waitlist') : 'Book now'}
             </Button>
           </div>
         </Card.Footer>

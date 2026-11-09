@@ -27,6 +27,10 @@ import SavedPassengers from './pages/customer/SavedPassengers.jsx';
 import AdminRuns from './pages/admin/AdminRuns.jsx';
 import AdminReports from './pages/admin/AdminReports.jsx';
 import AdminImport from './pages/admin/AdminImport.jsx';
+import AdminCustomers from './pages/admin/AdminCustomers.jsx';
+import AdminAudit from './pages/admin/AdminAudit.jsx';
+import Timetable from './pages/customer/Timetable.jsx';
+import VerifyTicket from './pages/customer/VerifyTicket.jsx';
 
 function RequireAdmin({ children }) {
   const { session } = useSession();
@@ -75,7 +79,7 @@ function Header() {
   };
 
   return (
-    <Navbar bg="primary" variant="dark" expand="md" sticky="top" className="app-navbar py-2" expanded={open} onToggle={setOpen}>
+    <Navbar bg="primary" variant="dark" expand="xl" sticky="top" className="app-navbar py-2" expanded={open} onToggle={setOpen}>
       <Container>
         <Navbar.Brand as={Link} to={session?.role === 'admin' ? '/console' : '/'}>
           <Logo />
@@ -86,7 +90,7 @@ function Header() {
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="main-nav" />
         <Navbar.Collapse id="main-nav">
-          <Nav className="me-auto ms-md-3">
+          <Nav className="me-auto ms-xl-3">
             {session?.role === 'admin' ? (
               <>
                 <Nav.Link as={NavLink} to="/console" end>
@@ -105,6 +109,14 @@ function Header() {
                   <i className="bi bi-bar-chart-line me-1" aria-hidden="true" />
                   Reports
                 </Nav.Link>
+                <Nav.Link as={NavLink} to="/console/customers">
+                  <i className="bi bi-people me-1" aria-hidden="true" />
+                  Customers
+                </Nav.Link>
+                <Nav.Link as={NavLink} to="/console/audit">
+                  <i className="bi bi-journal-text me-1" aria-hidden="true" />
+                  Audit log
+                </Nav.Link>
               </>
             ) : (
               <>
@@ -119,6 +131,10 @@ function Header() {
                 <Nav.Link as={NavLink} to="/chart">
                   <i className="bi bi-clipboard-check me-1" aria-hidden="true" />
                   Chart &amp; vacancy
+                </Nav.Link>
+                <Nav.Link as={NavLink} to="/timetable">
+                  <i className="bi bi-calendar-week me-1" aria-hidden="true" />
+                  Timetable
                 </Nav.Link>
                 {session?.role === 'customer' && (
                   <>
@@ -135,7 +151,7 @@ function Header() {
               </>
             )}
           </Nav>
-          <div className="d-flex flex-wrap align-items-center gap-2 py-2 py-md-0">
+          <div className="d-flex flex-wrap align-items-center gap-2 py-2 py-xl-0">
             {session ? (
               <>
                 <span className="text-white-50 small text-truncate" style={{ maxWidth: 220 }}>
@@ -188,6 +204,7 @@ function Footer() {
           <Link to="/bookings">My bookings</Link>
           <Link to="/chart">Chart &amp; vacancy</Link>
           <Link to="/pnr">PNR status</Link>
+          <Link to="/timetable">Timetable</Link>
           <Link to="/forgot">Reset password</Link>
           <Link to="/console/login">Admin</Link>
         </nav>
@@ -210,6 +227,24 @@ export default function App() {
             <Route path="/bookings" element={<MyBookings />} />
             <Route path="/chart" element={<ChartVacancy />} />
             <Route path="/pnr" element={<PnrStatus />} />
+            <Route path="/timetable" element={<Timetable />} />
+            <Route path="/ticket-check" element={<VerifyTicket />} />
+            <Route
+              path="/console/customers"
+              element={
+                <RequireAdmin>
+                  <AdminCustomers />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/console/audit"
+              element={
+                <RequireAdmin>
+                  <AdminAudit />
+                </RequireAdmin>
+              }
+            />
             <Route path="/passengers" element={<SavedPassengers />} />
             <Route
               path="/console/runs"

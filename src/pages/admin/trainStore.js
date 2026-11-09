@@ -42,6 +42,7 @@ export function fromServer(t) {
       arrivalTime: hhmm(s.arrivalTime),
       departureTime: hhmm(s.departureTime),
       km: Number(s.km) || 0,
+      day: s.day || null,
     })),
     basePrice: isObj(t.route) ? t.route.price : undefined,
     coaches: coaches.map(({ coachNumber, coachType, numberOfSeats, validFrom, validTo }) => ({

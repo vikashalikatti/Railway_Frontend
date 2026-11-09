@@ -40,6 +40,7 @@ const SECURITY_HEADERS = {
 const apiProxy = {
   target: BACKEND,
   changeOrigin: true,
+  xfwd: true, // tells Spring the real client address (for per-client rate limits)
   configure: (proxy) => {
     proxy.on('proxyReq', (proxyReq) => proxyReq.removeHeader('origin'));
   },

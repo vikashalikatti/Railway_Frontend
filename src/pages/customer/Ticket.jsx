@@ -11,6 +11,7 @@ const STATUS = {
   CONFIRMED: { label: 'Confirmed', bg: 'success', icon: 'bi-check-circle' },
   PARTIALLY_CONFIRMED: { label: 'Partly confirmed', bg: 'warning', icon: 'bi-hourglass-split' },
   WAITLISTED: { label: 'Waitlisted', bg: 'warning', icon: 'bi-hourglass-split' },
+  RAC: { label: 'RAC', bg: 'info', icon: 'bi-people' },
   CANCELLED: { label: 'Cancelled', bg: 'danger', icon: 'bi-x-circle' },
 };
 
@@ -19,6 +20,11 @@ export function passengerStatus(p, quota = 'GN') {
   const wl = quotaOf(quota).wl || 'WL';
   if (p.status === 'CNF') return `CNF ${p.coachNumber}/${p.seatNumber}/${BERTH_LABELS[p.berthType] || p.berthType}`;
   if (p.status === 'WL') return `${wl} ${p.currentWlPosition ?? p.wlNumber}`;
+  if (p.status === 'RAC')
+    return p.coachNumber && p.seatNumber
+      ? `RAC ${p.coachNumber}/${p.seatNumber} (shared side lower)`
+      : `RAC ${p.currentRacPosition ?? p.racNumber ?? ''}`;
+  if (p.cancelReason === 'VIKALP') return 'Moved to another train (Vikalp)';
   if (p.status === 'NB') return p.age < 5 ? 'Infant, no berth (free)' : 'Child, no berth';
   if (p.cancelReason === 'TRAIN') return 'Train cancelled';
   if (p.cancelReason === 'CHART') return 'Not confirmed at charting';
@@ -29,10 +35,11 @@ export function passengerStatus(p, quota = 'GN') {
  * A PNR as a ticket: journey on top, passengers below.
  * `actions(p)` can render a cancel button per passenger; `footer` goes underneath.
  */
-export default function Ticket({ booking: b, actions, footer }) {
+export default function Ticket({ booking: b, actions, footer, token }) {
   const cls = SEAT_TYPES.find((t) => t.id === b.seatType);
   const st = STATUS[b.status] || { label: b.status, bg: 'secondary', icon: 'bi-info-circle' };
-  const date = new Date(b.journeyDate + 'T00:00').toLocaleDateString('en-IN', {
+  // the day the passenger boards (later than journeyDate, the train's start, when boarding on Day 2+)
+  const date = new Date((b.boardingDate || b.journeyDate) + 'T00:00').toLocaleDateString('en-IN', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -156,7 +163,25 @@ export default function Ticket({ booking: b, actions, footer }) {
                     Booked at {wl} {p.wlNumber}
                   </div>
                 )}
-                {p.status === 'CNF' && p.wlNumber != null && <div className="small text-secondary">Booked at {wl} {p.wlNumber}</div>}
+                {(p.status === 'CNF' || p.status === 'RAC') && p.wlNumber != null && (
+                  <div className="small text-secondary">Booked at {wl} {p.wlNumber}</div>
+                )}
+                {p.status === 'CNF' && p.wlNumber == null && p.racNumber != null && (
+                  <div className="small text-secondary">Booked at RAC {p.racNumber}</div>
+                )}
+                {p.status === 'WL' && p.confirmChance && (
+                  <div className="small">
+                    <i className="bi bi-graph-up-arrow me-1 text-secondary" aria-hidden="true" />
+                    Chance of confirmation: <strong>{p.confirmChance}</strong>
+                  </div>
+                )}
+                {p.status === 'CAN' && p.refund != null && (
+                  <div className="small text-secondary">
+                    Refund {rupees(p.refund)}
+                    {p.cancellationCharge > 0 ? `, charge ${rupees(p.cancellationCharge)}` : ''}
+                  </div>
+                )}
+                {p.divyang && <div className="small text-secondary">Divyangjan, card {p.concessionCard}</div>}
                 {p.status === 'CNF' && p.nearWomen && (
                   <div className="small text-secondary">
                     <i className="bi bi-people me-1" aria-hidden="true" />
@@ -181,6 +206,17 @@ export default function Ticket({ booking: b, actions, footer }) {
           ))}
         </tbody>
       </Table>
+      {(b.note || b.vikalp) && (
+        <div className="px-3 py-2 border-top small">
+          <i className="bi bi-arrow-left-right me-1 text-accent" aria-hidden="true" />
+          {b.note || 'Vikalp is on: if still waitlisted at the chart, you move to another train with berths.'}
+        </div>
+      )}
+      {token && b.status !== 'CANCELLED' && (
+        <div className="px-3 py-2 border-top">
+          <ETicketButton token={token} booking={b} />
+        </div>
+      )}
       {(runLine || b.refundAmount > 0) && (
         <div className="border-top px-3 py-2 small d-flex flex-wrap gap-3">
           {runLine && (
@@ -221,5 +257,32 @@ export default function Ticket({ booking: b, actions, footer }) {
       )}
       {footer}
     </Card>
+  );
+}
+
+/** Downloads the e-ticket PDF (the PDF and QR code libraries load only when first used) */
+function ETicketButton({ token, booking }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const go = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const { downloadETicket } = await import('../../eticket.js');
+      await downloadETicket(token, booking);
+    } catch (err) {
+      setError(err.message || 'The e-ticket couldn’t be made. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <span className="d-inline-flex flex-wrap align-items-center gap-2">
+      <button type="button" className="btn btn-link btn-sm p-0" onClick={go} disabled={busy}>
+        <i className="bi bi-file-earmark-pdf me-1" aria-hidden="true" />
+        {busy ? 'Making the e-ticket…' : 'Download e-ticket (PDF with QR code)'}
+      </button>
+      {error && <span className="small text-danger">{error}</span>}
+    </span>
   );
 }

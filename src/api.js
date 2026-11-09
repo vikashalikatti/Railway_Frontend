@@ -161,13 +161,29 @@ export const customerApi = {
   /** Trains between two places; from / to are a station code, city or name */
   trains: (token, { from, to, date }) =>
     call('GET', '/customer/trains', { token, query: { from, to, date: toBackendDate(date) } }),
-  /** passengers: [{ name, age, gender, berthPreference }] */
-  book: (token, { trainNo, seatType, date, from, to, quota = 'GN', passengers }) =>
+  /** passengers: [{ name, age, gender, berthPreference, … }]; paymentId: a PAID test payment */
+  book: (token, { trainNo, seatType, date, from, to, quota = 'GN', passengers, paymentId, vikalp = false }) =>
     call('POST', `/customer/booking/${trainNo}`, {
       token,
-      query: { seat_type: seatType, book_date: toBackendDate(date), from, to, quota },
+      query: { seat_type: seatType, book_date: toBackendDate(date), from, to, quota, payment_id: paymentId, vikalp },
       json: passengers,
     }),
+  /** Test payment gateway. body: { amount, method: CARD|UPI|NETBANKING, cardNumber, expiry, cvv, nameOnCard, upiId, bank } */
+  startPayment: (token, body) => call('POST', '/customer/payments', { token, json: body }),
+  /** { otp } for cards, { approve: true|false } for UPI and net banking */
+  confirmPayment: (token, id, body) => call('POST', `/customer/payments/${encodeURIComponent(id)}/confirm`, { token, json: body }),
+  payments: (token) => call('GET', '/customer/payments', { token, quiet: true }),
+  banks: () => call('GET', '/customer/payments/banks', { quiet: true }),
+  /** What cancelling these passengers (all when empty) would refund; changes nothing */
+  cancelPreview: (token, pnr, passengerIds = []) => call('POST', `/customer/cancel_preview/${pnr}`, { token, json: passengerIds, quiet: true }),
+  /** Signed code for an e-ticket's QR */
+  ticketCode: (token, pnr) => call('GET', `/customer/ticket-code/${pnr}`, { token, quiet: true }),
+  /** Public: what a ticket checker sees */
+  verifyTicket: (code) => call('GET', '/customer/verify-ticket', { query: { code } }),
+  /** Public timetable of one train */
+  timetable: (trainNo) => call('GET', `/customer/timetable/${trainNo}`),
+  /** Public: trains by number or name (2+ characters) */
+  findTrains: (q) => call('GET', '/customer/train-search', { query: { q }, quiet: true }),
   pnr: (token, pnr) => call('GET', `/customer/pnr/${pnr}`, { token }),
   /** PNR status without logging in (no names) */
   publicPnr: (pnr) => call('GET', `/customer/pnr-status/${pnr}`),
@@ -240,6 +256,11 @@ export const adminApi = {
   addCoaches: (token, trainNo, composition) =>
     call('POST', `/admin/addCoaches/${trainNo}`, { token, json: composition }),
   deleteTrain: (token, trainNo) => call('DELETE', `/admin/delete/${trainNo}`, { token }),
+  customers: (token, q = '', limit = 50) => call('GET', '/admin/customers', { token, query: { q, limit }, quiet: true }),
+  customerBookings: (token, id) => call('GET', `/admin/customers/${id}/bookings`, { token }),
+  blockCustomer: (token, id, reason) => call('POST', `/admin/customers/${id}/block`, { token, json: { reason } }),
+  unblockCustomer: (token, id) => call('POST', `/admin/customers/${id}/unblock`, { token }),
+  audit: (token, q = '', limit = 200) => call('GET', '/admin/audit', { token, query: { q, limit }, quiet: true }),
 };
 
 export const BERTH_LABELS = {
@@ -276,7 +297,11 @@ export const QUOTAS = [
   { id: 'PT', label: 'Premium Tatkal', wl: null, max: 4, hint: 'Opens with Tatkal. The fare rises as seats sell, and there is no waitlist.' },
   { id: 'LD', label: 'Ladies', wl: null, max: 6, hint: 'For women, and children under 12 travelling with them. No waitlist.' },
   { id: 'SS', label: 'Senior citizen', wl: null, max: 2, hint: 'Lower berths for men aged 60+ and women aged 45+, up to 2 per booking. No waitlist.' },
+  { id: 'PH', label: 'Divyangjan', wl: null, max: 2, hint: 'For a passenger with a disability concession card, and one escort. Lower berths. No waitlist.' },
 ];
+
+/** Classes with RAC (side-lower berths shared by two RAC passengers) — same as the backend's RacRules */
+export const RAC_CLASSES = ['SLEEPER_CLASS', 'AC3_TIER', 'AC3_ECONOMY', 'AC2_TIER'];
 
 export const quotaOf = (id) => QUOTAS.find((q) => q.id === id) || QUOTAS[0];
 
@@ -302,6 +327,8 @@ export function quotaProblem(quotaId, passengers) {
   }
   if (quotaId === 'SS' && ok.some((p) => (p.gender === 'Female' ? Number(p.age) < 45 : Number(p.age) < 60)))
     return 'Senior citizen quota is for men aged 60+ and women aged 45+.';
+  if (quotaId === 'PH' && ok.length === passengers.length && !passengers.some((p) => p.divyang))
+    return 'Divyangjan quota needs a passenger with a disability concession card: tick “Divyangjan” for them.';
   return '';
 }
 

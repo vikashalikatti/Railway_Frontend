@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Table from 'react-bootstrap/Table';
-import { adminApi, quotaOffered, SEAT_TYPES } from '../../api.js';
+import { adminApi, quotaOffered, RAC_CLASSES, SEAT_TYPES } from '../../api.js';
 import { useAction, useSession } from '../../session.jsx';
 import { Button, ErrorNote } from '../../components/ui.jsx';
 
@@ -9,13 +9,20 @@ const FIELDS = [
   { key: 'premiumPct', quota: 'PT', label: 'Premium Tatkal' },
   { key: 'ladiesPct', quota: 'LD', label: 'Ladies' },
   { key: 'seniorPct', quota: 'SS', label: 'Senior citizen' },
+  { key: 'divyangPct', quota: 'PH', label: 'Divyangjan' },
 ];
+
+/** Side-lower berths per coach that can be RAC berths (same as RacRules.maxBerthsPerCoach) */
+const MAX_RAC = { SLEEPER_CLASS: 9, AC3_TIER: 9, AC3_ECONOMY: 9, AC2_TIER: 8 };
 
 /** Problem with one class's numbers, or '' (same rules as QuotaPlanner.Shares on the server) */
 function problem(row) {
   const nums = FIELDS.map((f) => Number(row[f.key] || 0));
   if (nums.some((n) => !Number.isInteger(n) || n < 0)) return 'Use whole numbers from 0.';
   if (nums.reduce((a, b) => a + b, 0) > 90) return 'Quotas can take at most 90%; keep some seats for General.';
+  const rac = Number(row.racBerths || 0);
+  if (!Number.isInteger(rac) || rac < 0) return 'RAC berths: use a whole number from 0.';
+  if (MAX_RAC[row.seatType] != null && rac > MAX_RAC[row.seatType]) return `At most ${MAX_RAC[row.seatType]} RAC berths per coach.`;
   return '';
 }
 
@@ -51,6 +58,7 @@ export default function QuotaEditor({ trainNumber }) {
     const body = {};
     rows.forEach((r) => {
       body[r.seatType] = Object.fromEntries(FIELDS.map((f) => [f.key, quotaOffered(f.quota, r.seatType) ? Number(r[f.key] || 0) : 0]));
+      body[r.seatType].racBerths = RAC_CLASSES.includes(r.seatType) ? Number(r.racBerths || 0) : 0;
     });
     save.run(async () => {
       const res = await adminApi.saveQuotas(session.token, trainNumber, body);
@@ -64,7 +72,7 @@ export default function QuotaEditor({ trainNumber }) {
       <h3 className="h6 mb-1">Quotas</h3>
       <p className="small text-secondary mb-3">
         Percent of each class’s seats. General gets the rest. Unsold quota seats go to the waitlist when the chart is prepared, 4 hours
-        before departure.
+        before departure. RAC berths are side lowers per coach, shared by two RAC passengers when the class is full.
       </p>
       <Table responsive size="sm" className="align-middle quota-table">
         <thead>
@@ -75,6 +83,7 @@ export default function QuotaEditor({ trainNumber }) {
                 {f.label} %
               </th>
             ))}
+            <th scope="col">RAC berths / coach</th>
             <th scope="col">Seats now</th>
           </tr>
         </thead>
@@ -109,8 +118,25 @@ export default function QuotaEditor({ trainNumber }) {
                     </td>
                   );
                 })}
+                <td>
+                  {RAC_CLASSES.includes(r.seatType) ? (
+                    <input
+                      className={`form-control form-control-sm ${errors[i] ? 'is-invalid' : ''}`}
+                      inputMode="numeric"
+                      aria-label={`${t ? t.short : r.seatType} RAC berths per coach`}
+                      value={r.racBerths ?? 0}
+                      onChange={(e) => set(i, 'racBerths', e.target.value)}
+                      style={{ maxWidth: 72 }}
+                    />
+                  ) : (
+                    <span className="small text-secondary" title="Only classes with side-lower berths have RAC">
+                      n/a
+                    </span>
+                  )}
+                </td>
                 <td className="small text-secondary text-nowrap">
-                  {r.seats} total: GN {counts.GN ?? 0}, TQ {counts.TQ ?? 0}, PT {counts.PT ?? 0}, LD {counts.LD ?? 0}, SS {counts.SS ?? 0}
+                  {r.seats} total: GN {counts.GN ?? 0}, TQ {counts.TQ ?? 0}, PT {counts.PT ?? 0}, LD {counts.LD ?? 0}, SS {counts.SS ?? 0},
+                  PH {counts.PH ?? 0}, RAC {counts.RC ?? 0}
                 </td>
               </tr>
             );

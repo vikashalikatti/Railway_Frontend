@@ -10,7 +10,7 @@ const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'satu
  * Everything the results page needs about one train for one search:
  * boarding/alighting stops, times, day offsets, distance and classes.
  */
-export function describeJourney(train, from, to, isoDate, fromStop, toStop) {
+export function describeJourney(train, from, to, isoDate, fromStop, toStop, match) {
   const stations = (train.stations || []).filter((s) => s && typeof s === 'object');
   // The backend tells us which stops match (by code, city or name); fall back to matching names
   const si = Number.isInteger(fromStop) ? fromStop : stations.findIndex((s) => matches(s.stationName, from));
@@ -36,8 +36,13 @@ export function describeJourney(train, from, to, isoDate, fromStop, toStop) {
 
   const depMin = minutesOf(board?.departureTime);
   const arrMin = minutesOf(alight?.arrivalTime);
-  const extraDays = si >= 0 && ei > si ? dayOf[ei] - dayOf[si] : 0;
-  const durationMin = depMin != null && arrMin != null ? arrMin - depMin + extraDays * 1440 : null;
+  // the server works out days from the timetable (explicit Day numbers win); fall back to the times here
+  const extraDays = match?.toDay && match?.fromDay ? match.toDay - match.fromDay : si >= 0 && ei > si ? dayOf[ei] - dayOf[si] : 0;
+  const durationMin = Number.isFinite(match?.minutes)
+    ? match.minutes
+    : depMin != null && arrMin != null
+      ? arrMin - depMin + extraDays * 1440
+      : null;
 
   const start = new Date(isoDate + 'T00:00');
   const arrDate = new Date(start);
@@ -65,6 +70,10 @@ export function describeJourney(train, from, to, isoDate, fromStop, toStop) {
     runs,
     knowsRunningDays: runningDays.length > 0,
     classes: classesOf(train),
+    // the day of this train's run the passenger boards on (1 = the day it leaves its first station)
+    boardDay: match?.fromDay || (si >= 0 ? dayOf[si] + 1 : 1),
+    // free General berths per class from the search (null when the server didn't send them)
+    available: match?.available || null,
   };
 }
 

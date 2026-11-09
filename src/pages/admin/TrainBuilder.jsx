@@ -267,7 +267,25 @@ const blankStop = (name = '', code = null) => ({
   km: '',
   kmAuto: false,
   kmManual: false,
+  day: null, // null = worked out from the times
 });
+
+/** Day each stop is reached (1 = the day the train leaves its first station), from the times; set days win */
+function inferDays(stops) {
+  const toMin = (t) => (t ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) : null);
+  let last = null;
+  return stops.map((s) => {
+    const a = toMin(s.arrivalTime || s.departureTime);
+    const d = toMin(s.departureTime || s.arrivalTime);
+    let am = a == null ? last ?? 0 : a;
+    if (s.day) am = (s.day - 1) * 1440 + (a ?? 0);
+    while (last != null && am < last) am += 1440;
+    let dm = Math.floor(am / 1440) * 1440 + (d ?? a ?? 0);
+    if (dm < am) dm += 1440;
+    last = dm;
+    return Math.floor(am / 1440) + 1;
+  });
+}
 
 /** A station change makes the km into this stop and out of it stale, unless the admin typed them */
 const stationChanged = (stops, i, patch) =>
@@ -312,6 +330,7 @@ function StationsStep({ train, onDone }) {
           departureTime: i === saved.length - 1 ? '' : s.departureTime || '',
           km: i === 0 ? '' : String(s.km || ''),
           kmManual: i > 0 && s.km > 0, // keep saved distances unless asked to re-estimate
+          day: s.day || null,
         }))
       : [blankStop(train.sourceStation, train.sourceCode || null), blankStop(train.destinationStation, train.destinationCode || null)]
   );
@@ -405,6 +424,7 @@ function StationsStep({ train, onDone }) {
         arrivalTime: arr,
         departureTime: dep,
         km: i === 0 ? 0 : Number(s.km),
+        day: s.day || null,
       };
     });
     run(async () => {
@@ -418,6 +438,7 @@ function StationsStep({ train, onDone }) {
   };
 
   const inv = (i, k) => (errors[i]?.[k] ? 'true' : undefined);
+  const days = inferDays(stops);
 
   return (
     <form className="vstack gap-3 align-items-stretch" onSubmit={submit} ref={setFormEl} noValidate>
@@ -494,6 +515,24 @@ function StationsStep({ train, onDone }) {
                   <span />
                 )}
               </div>
+              {!first && (days[i] > 1 || s.day) && (
+                <label className="stop-day small text-secondary">
+                  Reaches on
+                  <select
+                    className="form-select form-select-sm w-auto"
+                    aria-label={`Stop ${i + 1} day of the journey`}
+                    value={s.day || ''}
+                    onChange={(e) => setStops((prev) => prev.map((x, j) => (j === i ? { ...x, day: e.target.value ? Number(e.target.value) : null } : x)))}
+                  >
+                    <option value="">Day {days[i]} (from the times)</option>
+                    {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                      <option key={d} value={d}>
+                        Day {d}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {msgs.length > 0 && (
                 <span className="invalid-feedback d-block" role="alert">
                   Stop {i + 1}: {msgs.join(' ')}
