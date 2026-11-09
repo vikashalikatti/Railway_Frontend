@@ -4,6 +4,8 @@ import {
   BERTH_LABELS,
   bedrollIncluded,
   bedrollOffered,
+  canAskForHelp,
+  canHelp,
   customerApi,
   extrasFare,
   isChild,
@@ -21,7 +23,7 @@ import { check, focusFirstError, rules } from '../../validate.js';
 import { digits } from '../../useForm.js';
 import Ticket from './Ticket.jsx';
 
-const blank = () => ({ name: '', age: '', gender: '', berthPreference: '', noBerth: false, meal: 'NONE', bedroll: false });
+const blank = () => ({ name: '', age: '', gender: '', berthPreference: '', noBerth: false, meal: 'NONE', bedroll: false, needsAssistance: false, helper: false });
 const MAX_INFANTS = 2;
 
 // Same checks as signup, worded for a passenger
@@ -76,6 +78,10 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
       setErrors([...errors, {}]);
     }
   };
+  // Boarding help: a senior (60+) travelling alone can ask; adults (18-59) on other tickets can volunteer
+  const asksForHelp = passengers.some((p) => p.needsAssistance && canAskForHelp(p.age, berthCount) && !withoutBerth(p));
+  // A woman (12+) alone is seated near other women where possible; nothing about anyone else is shown
+  const soloWoman = berthCount === 1 && passengers.some((p) => !withoutBerth(p) && p.gender === 'Female' && p.age !== '' && Number(p.age) >= 12);
   const onBooking = new Set(passengers.map((p) => p.name.trim().toLowerCase()));
   // Premium Tatkal, Ladies, Senior citizen and after-chart bookings have no waitlist
   const noWaitlist = !q.wl || availability?.chartPrepared;
@@ -138,6 +144,8 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
           noBerth: isChild(p.age) && !!p.noBerth,
           meal: p.meal || 'NONE',
           bedroll: !!p.bedroll && bedrollOffered(seatClass.id),
+          needsAssistance: !!p.needsAssistance && canAskForHelp(p.age, berthCount) && !withoutBerth(p),
+          helper: !!p.helper && canHelp(p.age) && !asksForHelp,
         })),
       });
       setResult(res.data2);
@@ -328,6 +336,23 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
               </label>
             )}
             {bedrollIncluded(seatClass.id) && <span className="text-secondary">Bedroll included</span>}
+            {!withoutBerth(p) && canAskForHelp(p.age, berthCount) && (
+              <label className="form-check mb-0">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  checked={!!p.needsAssistance}
+                  onChange={(e) => update(i, 'needsAssistance', e.target.checked)}
+                />
+                <span className="form-check-label">Needs boarding help (we’ll find a helper on the coach)</span>
+              </label>
+            )}
+            {canHelp(p.age) && !asksForHelp && (
+              <label className="form-check mb-0" title="We seat you near a senior travelling alone who asked for help boarding">
+                <input className="form-check-input" type="checkbox" checked={!!p.helper} onChange={(e) => update(i, 'helper', e.target.checked)} />
+                <span className="form-check-label">Happy to help a senior traveller board</span>
+              </label>
+            )}
           </div>
           {passengers.length > 1 && (
             <button type="button" className="btn btn-link btn-sm text-danger p-0 mt-2" onClick={() => remove(i)}>
@@ -337,6 +362,13 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
           )}
         </fieldset>
       ))}
+
+      {soloWoman && (
+        <p className="small text-secondary mb-0">
+          <i className="bi bi-people me-1" aria-hidden="true" />
+          Travelling alone: where we can, we seat you in a bay with other women. No one is shown who sits where.
+        </p>
+      )}
 
       {rulesProblem && (
         <Note tone="warn">

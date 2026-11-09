@@ -2,6 +2,20 @@
 
 Each version is delivered as `railway-frontend-vX.Y.Z.zip`.
 
+## v1.15.0 — 9 Nov 2026
+Safer seating, boarding help, and importing trains in bulk. Use with backend v1.10.0.
+- Booking: a woman travelling alone sees that she'll be seated near other women where possible
+  (no one is shown who sits where). Her ticket says when it worked.
+- Booking: a passenger aged 60+ travelling alone can tick "Needs boarding help"; adults 18-59 can
+  tick "Happy to help a senior traveller board". Tickets show the match (first name, coach and
+  berth), or that no helper has been found yet.
+- Admin "Import trains" (/console/import, from the Trains list): import the bundled Indian
+  Railways list or a CSV / JSON file, with coaches per class, base fare, station filter and a
+  limit; live progress and the list of problems. CSV template and JSON example downloads.
+- Admin Trains list searches the server and shows 50 at a time ("Showing 50 of 2,215").
+- Charts and Train runs pick a train by typing its number or name instead of a long dropdown.
+- Admin chart: "Boarding help" column for station staff.
+
 ## v1.14.0 — 9 Nov 2026
 Passenger and admin features. Use with backend v1.9.0.
 - PNR status page (/pnr, no log-in; also in the footer): booking and current status per passenger,

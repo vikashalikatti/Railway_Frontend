@@ -1082,3 +1082,66 @@ $berth-booked: #c3cad6;
   border-left: 3px solid var(--bs-primary);
   padding: 0.25rem 0 0.25rem 0.75rem;
 }
+
+/* Boarding help match on a ticket */
+.companion-note {
+  color: var(--bs-success-text-emphasis);
+}
+
+/* Train picker (admin): search the server as you type */
+.train-picker {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  box-shadow: var(--bs-box-shadow);
+
+  li[role='option'] {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+
+    &:hover,
+    &.active {
+      background: var(--bs-primary-bg-subtle);
+    }
+  }
+}
+
+/* Bulk import */
+.coach-count-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.import-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+
+  dt {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.import-problems {
+  max-height: 240px;
+  overflow-y: auto;
+}

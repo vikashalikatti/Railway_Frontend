@@ -26,6 +26,7 @@ import PnrStatus from './pages/customer/PnrStatus.jsx';
 import SavedPassengers from './pages/customer/SavedPassengers.jsx';
 import AdminRuns from './pages/admin/AdminRuns.jsx';
 import AdminReports from './pages/admin/AdminReports.jsx';
+import AdminImport from './pages/admin/AdminImport.jsx';
 
 function RequireAdmin({ children }) {
   const { session } = useSession();
@@ -215,6 +216,14 @@ export default function App() {
               element={
                 <RequireAdmin>
                   <AdminRuns />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/console/import"
+              element={
+                <RequireAdmin>
+                  <AdminImport />
                 </RequireAdmin>
               }
             />

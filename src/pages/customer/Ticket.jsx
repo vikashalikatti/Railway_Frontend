@@ -116,7 +116,7 @@ export default function Ticket({ booking: b, actions, footer }) {
           <div className="col-5 col-md-3 text-end">
             <div className="fw-bold fs-5 text-dark">{rupees(b.totalFare)}</div>
             <div className="small text-secondary">
-              {active === b.passengers.length ? `${b.passengers.length} passengers` : `${active} of ${b.passengers.length} active`}
+              {active === b.passengers.length ? `${b.passengers.length} ${b.passengers.length === 1 ? "passenger" : "passengers"}` : `${active} of ${b.passengers.length} active`}
             </div>
           </div>
         </div>
@@ -157,6 +157,24 @@ export default function Ticket({ booking: b, actions, footer }) {
                   </div>
                 )}
                 {p.status === 'CNF' && p.wlNumber != null && <div className="small text-secondary">Booked at {wl} {p.wlNumber}</div>}
+                {p.status === 'CNF' && p.nearWomen && (
+                  <div className="small text-secondary">
+                    <i className="bi bi-people me-1" aria-hidden="true" />
+                    Seated in a bay with other women
+                  </div>
+                )}
+                {p.status === 'CNF' && p.companionNote && (
+                  <div className="small companion-note">
+                    <i className="bi bi-person-heart me-1" aria-hidden="true" />
+                    {p.companionNote}
+                  </div>
+                )}
+                {p.status === 'CNF' && !p.companionNote && p.needsAssistance && (
+                  <div className="small text-secondary">Boarding help asked for. No helper on this coach yet; we keep looking until the chart.</div>
+                )}
+                {p.status === 'WL' && (p.needsAssistance || p.helper) && (
+                  <div className="small text-secondary">{p.needsAssistance ? 'Boarding help' : 'Helper'}: matched once confirmed</div>
+                )}
               </td>
               {actions && <td className="text-end pe-3">{actions(p)}</td>}
             </tr>

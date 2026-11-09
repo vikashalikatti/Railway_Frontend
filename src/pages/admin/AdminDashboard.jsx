@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Badge from 'react-bootstrap/Badge';
 import Card from 'react-bootstrap/Card';
 import ListGroup from 'react-bootstrap/ListGroup';
@@ -16,24 +17,45 @@ export default function AdminDashboard() {
   const del = useAction();
   const [confirm, confirmDialog] = useConfirm();
   const [trains, setTrains] = useState(null); // null while loading
+  const [total, setTotal] = useState(0); // trains matching the search on the server
   const [selected, setSelected] = useState(null); // train number, or 'new'
+  const [current, setCurrent] = useState(null); // the selected train (kept even when a search hides it)
   const [query, setQuery] = useState('');
+  const timer = useRef(null);
 
   const reload = useCallback(
-    () =>
+    (q = '', quiet = false) =>
       load.run(async () => {
-        const res = await adminApi.trains(session.token);
+        const res = await adminApi.trains(session.token, q, 50, quiet);
         const list = (res.data2 || []).filter((t) => t && typeof t === 'object').map((t) => fromServer(t));
         setTrains(list);
-        setSelected((sel) => (sel === 'new' || list.some((t) => t.trainNumber === sel) ? sel : list[0]?.trainNumber ?? 'new'));
+        setTotal(Number(res.data) || list.length);
+        setSelected((sel) => (sel === null ? list[0]?.trainNumber ?? 'new' : sel));
+        setCurrent((cur) => {
+          if (cur) return list.find((t) => t.trainNumber === cur.trainNumber) || cur;
+          return list[0] || null;
+        });
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [session?.token]
   );
 
   useEffect(() => {
-    reload();
+    reload('');
+    return () => clearTimeout(timer.current);
   }, [reload]);
+
+  // Search on the server as the admin types (there can be thousands of trains)
+  const onSearch = (v) => {
+    setQuery(v);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => reload(v.trim(), true), 300);
+  };
+
+  const pick = (t) => {
+    setSelected(t.trainNumber);
+    setCurrent(t);
+  };
 
   /** A setup step was saved: show it at once, then refresh from the server */
   const upsert = (train) => {
@@ -41,8 +63,8 @@ export default function AdminDashboard() {
       const rest = (list || []).filter((t) => t.trainNumber !== train.trainNumber);
       return [...rest, train].sort((a, b) => a.trainNumber - b.trainNumber);
     });
-    setSelected(train.trainNumber);
-    reload();
+    pick(train);
+    reload(query.trim(), true);
   };
 
   const remove = async (train) => {
@@ -63,23 +85,13 @@ export default function AdminDashboard() {
         notify(`Train ${train.trainNumber} was already deleted. The list has been refreshed.`, 'info');
       }
       setSelected(null);
-      await reload();
+      setCurrent(null);
+      await reload(query.trim());
     });
   };
 
-  const current = trains?.find((t) => t.trainNumber === selected);
-
-  // Number, name, start/end or any stop (name or code)
-  const q = query.trim().toLowerCase();
-  const shown = !trains
-    ? null
-    : !q
-      ? trains
-      : trains.filter((t) =>
-          [String(t.trainNumber), t.trainName, t.sourceStation, t.destinationStation, t.train_type, ...(t.stops || []).flatMap((s) => [s.stationName, s.stationCode])]
-            .filter(Boolean)
-            .some((v) => String(v).toLowerCase().includes(q))
-        );
+  const q = query.trim();
+  const shown = trains;
 
   return (
     <div className="container py-4">
@@ -92,7 +104,7 @@ export default function AdminDashboard() {
                 <i className="bi bi-train-front me-2 text-accent" aria-hidden="true" />
                 Trains
               </h1>
-              <Button variant="outline" size="sm" onClick={reload} busy={load.busy} aria-label="Refresh list" title="Refresh list">
+              <Button variant="outline" size="sm" onClick={() => reload(q)} busy={load.busy} aria-label="Refresh list" title="Refresh list">
                 {!load.busy && <i className="bi bi-arrow-clockwise" aria-hidden="true" />}
               </Button>
             </Card.Header>
@@ -101,23 +113,29 @@ export default function AdminDashboard() {
                 <i className="bi bi-plus-lg" aria-hidden="true" />
                 Add a train
               </Button>
-              {trains?.length > 0 && (
+              <Link to="/console/import" className="btn btn-outline-primary btn-sm">
+                <i className="bi bi-cloud-arrow-down me-1" aria-hidden="true" />
+                Import trains
+              </Link>
+              {(trains?.length > 0 || q) && (
                 <div className="position-relative">
                   <i className="bi bi-search train-search-icon" aria-hidden="true" />
                   <input
                     type="search"
                     className="form-control form-control-sm train-search"
-                    placeholder="Number, name or station"
-                    aria-label="Search trains by number, name or station"
+                    placeholder="Number, name or first/last station"
+                    aria-label="Search trains by number, name, first or last station"
                     value={query}
                     maxLength={60}
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => onSearch(e.target.value)}
                   />
                 </div>
               )}
-              {q && shown && (
+              {shown && (q || total > shown.length) && (
                 <span className="small text-secondary px-1" role="status">
-                  {shown.length} of {trains.length} {trains.length === 1 ? 'train' : 'trains'}
+                  {total > shown.length
+                    ? `Showing ${shown.length} of ${total.toLocaleString('en-IN')} trains. Search to find the rest.`
+                    : `${total} ${total === 1 ? 'train' : 'trains'}`}
                 </span>
               )}
             </div>
@@ -132,12 +150,14 @@ export default function AdminDashboard() {
                   </ListGroup.Item>
                 ))}
               </ListGroup>
-            ) : trains.length === 0 ? (
-              <Card.Body className="text-secondary small">No trains yet. Add one to set up its timetable, fares and coaches.</Card.Body>
+            ) : trains.length === 0 && !q ? (
+              <Card.Body className="text-secondary small">
+                No trains yet. Add one to set up its timetable, fares and coaches, or import many at once.
+              </Card.Body>
             ) : shown.length === 0 ? (
               <Card.Body className="text-secondary small">
                 No train matches “{query.trim()}”.{' '}
-                <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => setQuery('')}>
+                <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => onSearch('')}>
                   Clear search
                 </button>
               </Card.Body>
@@ -147,7 +167,7 @@ export default function AdminDashboard() {
                   const doneCount = STEPS.filter((s) => t.done?.[s]).length;
                   const active = selected === t.trainNumber;
                   return (
-                    <ListGroup.Item key={t.trainNumber} action active={active} onClick={() => setSelected(t.trainNumber)} className="fleet-item">
+                    <ListGroup.Item key={t.trainNumber} action active={active} onClick={() => pick(t)} className="fleet-item">
                       <div className="d-flex align-items-center gap-2">
                         <Badge bg={active ? 'light' : 'primary'} text={active ? 'primary' : undefined}>
                           {t.trainNumber}

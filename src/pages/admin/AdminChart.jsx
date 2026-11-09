@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Badge from 'react-bootstrap/Badge';
 import Card from 'react-bootstrap/Card';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
 import Table from 'react-bootstrap/Table';
 import { adminApi, BERTH_LABELS, SEAT_TYPES } from '../../api.js';
+import TrainPicker from '../../components/TrainPicker.jsx';
 import { useAction, useSession } from '../../session.jsx';
-import { Button, Input, Select, todayIso } from '../../components/ui.jsx';
+import { Button, Input, todayIso } from '../../components/ui.jsx';
 import ChartBoard from '../../components/ChartBoard.jsx';
 
 const STAGE = [
@@ -18,23 +19,12 @@ const STAGE = [
 /** Admin's reservation chart: the berth map plus every passenger, at any time */
 export default function AdminChart() {
   const { session } = useSession();
-  const trainsLoad = useAction();
   const chartLoad = useAction();
-  const [trains, setTrains] = useState([]);
   const [train, setTrain] = useState('');
   const [date, setDate] = useState(todayIso());
   const [view, setView] = useState(null);
   const [filter, setFilter] = useState('');
 
-  useEffect(() => {
-    trainsLoad.run(async () => {
-      const res = await adminApi.trains(session.token);
-      const list = (res.data2 || []).filter((t) => t && typeof t === 'object');
-      setTrains(list);
-      if (list[0]) setTrain(String(list[0].trainNumber));
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const show = (e) => {
     e.preventDefault();
@@ -65,14 +55,7 @@ export default function AdminChart() {
           <form onSubmit={show} noValidate>
             <Row className="g-3 align-items-end">
               <Col xs={12} md={5}>
-                <Select label="Train" value={train} onChange={(e) => setTrain(e.target.value)}>
-                  {trains.length === 0 && <option value="">No trains yet</option>}
-                  {trains.map((t) => (
-                    <option key={t.trainNumber} value={t.trainNumber}>
-                      {t.trainNumber} {t.trainName}
-                    </option>
-                  ))}
-                </Select>
+                <TrainPicker value={train} onChange={(no) => setTrain(no)} />
               </Col>
               <Col xs={7} md={3}>
                 <Input label="Journey date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -134,7 +117,8 @@ export default function AdminChart() {
                     <th scope="col">Berth</th>
                     <th scope="col">Journey</th>
                     <th scope="col">Quota</th>
-                    <th scope="col" className="pe-3">Status</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" className="pe-3">Boarding help</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -152,7 +136,8 @@ export default function AdminChart() {
                           {p.from} to {p.to}
                         </td>
                         <td className="small">{p.quota}</td>
-                        <td className={`pe-3 small fw-semibold ${p.status === 'CNF' ? 'text-success' : 'text-danger'}`}>{p.status}</td>
+                        <td className={`small fw-semibold ${p.status === 'CNF' ? 'text-success' : 'text-danger'}`}>{p.status}</td>
+                        <td className="pe-3 small">{p.assistance || ''}</td>
                       </tr>
                     );
                   })}

@@ -203,7 +203,21 @@ export const adminApi = {
   addStations: (token, trainNo, stations) =>
     call('POST', `/admin/addstations/${trainNo}`, { token, json: stations }),
   addRoute: (token, trainNo, route) => call('POST', `/admin/addRoute/${trainNo}`, { token, json: route }),
-  trains: (token) => call('GET', '/admin/trains', { token }),
+  /** Trains by number, up to `limit`, filtered by q (number, name, first or last station). data = total matching. */
+  trains: (token, q = '', limit = 50, quiet = false) => call('GET', '/admin/trains', { token, query: { q, limit }, quiet }),
+  /** One train with its stops, fare and coaches */
+  train: (token, trainNo) => call('GET', `/admin/trains/${trainNo}`, { token }),
+  /** Bulk import: what the bundled Indian Railways list holds */
+  importSummary: (token) => call('GET', '/admin/import/bundled', { token }),
+  /** options: { coaches: { SL: 4, … }, baseFare, addCoaches, onlyStations, limit } */
+  importBundled: (token, options) => call('POST', '/admin/import/bundled', { token, json: options }),
+  importUpload: (token, file, options) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('options', JSON.stringify(options));
+    return call('POST', '/admin/import/upload', { token, form: fd });
+  },
+  importStatus: (token) => call('GET', '/admin/import/status', { token, quiet: true }),
   /** station: { code, name, city, state } */
   addStation: (token, station) => call('POST', '/admin/stations', { token, json: station }),
   /** Quota split per class: [{ seatType, tatkalPct, premiumPct, ladiesPct, seniorPct, saved, seats, seatsByQuota }] */
@@ -309,6 +323,10 @@ export function ticketFare(p, fullFare) {
   if (isChild(p.age) && p.noBerth) return Math.round(fullFare / 2);
   return fullFare;
 }
+/** Boarding help and helpers (same as the backend's CompanionRules) */
+export const canAskForHelp = (age, withBerth) => age !== '' && Number(age) >= 60 && withBerth === 1;
+export const canHelp = (age) => age !== '' && Number(age) >= 18 && Number(age) < 60;
+
 export function extrasFare(p, type) {
   const meal = MEALS.find((m) => m.id === (p.meal || 'NONE'));
   return (meal ? meal.price : 0) + (p.bedroll && bedrollOffered(type) ? BEDROLL_PRICE : 0);

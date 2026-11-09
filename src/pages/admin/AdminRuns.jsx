@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Badge from 'react-bootstrap/Badge';
 import Card from 'react-bootstrap/Card';
 import Col from 'react-bootstrap/Col';
@@ -7,6 +7,7 @@ import Table from 'react-bootstrap/Table';
 import { adminApi, customerApi } from '../../api.js';
 import { useAction, useSession } from '../../session.jsx';
 import { Button, ErrorNote, Input, Select, todayIso } from '../../components/ui.jsx';
+import TrainPicker from '../../components/TrainPicker.jsx';
 import useConfirm from '../../components/useConfirm.jsx';
 
 /**
@@ -17,11 +18,9 @@ import useConfirm from '../../components/useConfirm.jsx';
  */
 export default function AdminRuns() {
   const { session, notify } = useSession();
-  const list = useAction();
   const load = useAction();
   const act = useAction();
   const [confirm, confirmDialog] = useConfirm();
-  const [trains, setTrains] = useState([]);
   const [train, setTrain] = useState('');
   const [date, setDate] = useState(todayIso());
   const [run, setRun] = useState(null);
@@ -29,15 +28,6 @@ export default function AdminRuns() {
   const [late, setLate] = useState({ delay: '', reason: '' });
   const [reason, setReason] = useState('');
 
-  useEffect(() => {
-    list.run(async () => {
-      const res = await adminApi.trains(session.token);
-      const ts = (res.data2 || []).filter((t) => t && typeof t === 'object');
-      setTrains(ts);
-      if (ts[0]) setTrain(String(ts[0].trainNumber));
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const show = (e) => {
     e?.preventDefault();
@@ -91,13 +81,7 @@ export default function AdminRuns() {
           <form onSubmit={show} noValidate>
             <Row className="g-3 align-items-end">
               <Col md={5}>
-                <Select label="Train" value={train} onChange={(e) => setTrain(e.target.value)}>
-                  {trains.map((t) => (
-                    <option key={t.trainNumber} value={t.trainNumber}>
-                      {t.trainNumber} {t.trainName}
-                    </option>
-                  ))}
-                </Select>
+                <TrainPicker value={train} onChange={(no) => setTrain(no)} />
               </Col>
               <Col xs={7} md={3}>
                 <Input label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
