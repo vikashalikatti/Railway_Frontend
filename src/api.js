@@ -223,7 +223,7 @@ export const adminApi = {
   trains: (token, q = '', limit = 50, quiet = false) => call('GET', '/admin/trains', { token, query: { q, limit }, quiet }),
   /** One train with its stops, fare and coaches */
   train: (token, trainNo) => call('GET', `/admin/trains/${trainNo}`, { token }),
-  /** Bulk import: what the bundled Indian Railways list holds */
+  /** Bulk import: what the bundled Karnataka list holds */
   importSummary: (token) => call('GET', '/admin/import/bundled', { token }),
   /** options: { coaches: { SL: 4, … }, baseFare, addCoaches, onlyStations, limit } */
   importBundled: (token, options) => call('POST', '/admin/import/bundled', { token, json: options }),

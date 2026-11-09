@@ -1,6 +1,6 @@
 /*
  * E-ticket PDF with a signed QR code. Made in the browser (jsPDF), so the ticket works offline once saved.
- * The QR holds a link to this app's /verify page with a code the server signed: a ticket checker scans it
+ * The QR holds a link to this app's /ticket-check page with a code the server signed: a ticket checker scans it
  * and sees the live status. A changed or made-up code shows as not valid.
  */
 import { jsPDF } from 'jspdf';

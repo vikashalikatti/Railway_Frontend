@@ -54,7 +54,7 @@ const ORDER = ['SL', '3A', '2A', '1A', '3E', 'CC', 'EC', '2S'];
 const CLASSES = ORDER.map((s) => SEAT_TYPES.find((t) => t.short === s));
 const fmt = (n) => Number(n || 0).toLocaleString('en-IN');
 
-/** Bulk import of trains: the bundled Indian Railways list, or a CSV / JSON file */
+/** Bulk import of trains: the bundled Karnataka list, or a CSV / JSON file */
 export default function AdminImport() {
   const { session, notify } = useSession();
   const [confirm, confirmDialog] = useConfirm();
@@ -299,12 +299,13 @@ export default function AdminImport() {
         <Col lg={6}>
           <Card className="shadow-sm h-100">
             <Card.Body className="p-4 vstack gap-3">
-              <h2 className="h5 mb-0">Indian Railways list</h2>
+              <h2 className="h5 mb-0">Karnataka trains</h2>
               {summary ? (
                 <>
                   <p className="mb-0">
-                    <strong>{fmt(summary.trains)}</strong> trains with reserved classes and <strong>{fmt(summary.stations)}</strong> stations
-                    {summary.alreadyInDatabase > 0 && <> ({fmt(summary.alreadyInDatabase)} of these trains are already in your database)</>}.
+                    <strong>{fmt(summary.trains)}</strong> trains running in Karnataka, including the Vande Bharat trains, and <strong>{fmt(summary.stations)}</strong> stations
+                    (all of them join the station directory
+                    {summary.alreadyInDatabase > 0 && <>; {fmt(summary.alreadyInDatabase)} of these trains are already in your database</>}).
                   </p>
                   <div className="d-flex flex-wrap gap-1">
                     {Object.entries(summary.byType || {}).map(([t, n]) => (
@@ -314,8 +315,9 @@ export default function AdminImport() {
                     ))}
                   </div>
                   <Note tone="warn">
-                    Collected in 2016 from DataMeet’s open data (CC0). Timings and train numbers may have changed since, and the list has no running days, so
-                    every train runs daily. Check important trains after importing.
+                    Vande Bharat timings and running days are from 2025 public timetables. The other trains come from DataMeet’s open data (CC0, 2016):
+                    their timings may have changed, they run daily, and long-distance trains include only their stops in Karnataka. Passenger trains get
+                    second-sitting (2S) coaches. Check important trains after importing.
                   </Note>
                 </>
               ) : (
@@ -324,7 +326,7 @@ export default function AdminImport() {
               <div className="mt-auto">
                 <Button variant="accent" onClick={importBundled} busy={start.busy} busyText="Starting…" disabled={!summary || running || !!optionProblem}>
                   <i className="bi bi-cloud-arrow-down" aria-hidden="true" />
-                  Import Indian Railways trains
+                  Import Karnataka trains
                 </Button>
               </div>
             </Card.Body>

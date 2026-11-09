@@ -2,6 +2,18 @@
 
 Each version is delivered as `railway-frontend-vX.Y.Z.zip`.
 
+## v1.17.0 — 9 Nov 2026
+Use with backend v1.12.0.
+- **Import trains**: the bundled list is now the Karnataka list (438 trains including the 12 Vande
+  Bharat trains, 430 stations, all added to the station directory). The page explains where the
+  data comes from and that passenger trains get 2S coaches.
+- **Docker**: `Dockerfile` (Node 22 build, served by nginx without root on port 8080) and
+  `docker/nginx.conf.template`: forwards `/customer` and `/admin` to `BACKEND_URL` without the Origin
+  header, passes the real client address on, sends the same security headers and
+  Content-Security-Policy as the preview server, caches built files for a year, `/healthz` for
+  health checks, and sends every other address to the app (React Router).
+- README: running in Docker; Karnataka import.
+
 ## v1.16.1 — 9 Nov 2026
 - Fix: the e-ticket check page had taken the /verify address, so the email OTP page after sign-up
   showed the ticket check instead. The ticket check is now at /ticket-check (QR codes point there).

@@ -32,7 +32,7 @@ be running for the app to work.
 | Page | Address | What it does |
 |---|---|---|
 | Manage trains | `/console` | Search trains; add or edit a train step by step (details, running days, stops with km estimates and days, fare, coaches, quotas and RAC berths, coaches by date) |
-| Import trains | `/console/import` | Bundled list of 2,215 Indian trains, or a CSV / JSON file; progress and problems |
+| Import trains | `/console/import` | Bundled list of 438 Karnataka trains (with the Vande Bharat trains) and their stations, or a CSV / JSON file; progress and problems |
 | Charts | `/console/chart` | Reservation chart with every passenger |
 | Train runs | `/console/runs` | Live position and delay, reschedule, cancel a run |
 | Reports | `/console/reports` | Occupancy, revenue, cancellations, waitlist results |
@@ -82,7 +82,20 @@ Serve `dist/` from any web server and forward `/customer` and `/admin` to the ba
 `VITE_API_BASE` at build time and add the site's address to the backend's `CORS_ORIGINS`). Use the
 security headers from `vite.config.js` on the real server too.
 
-### 4. Windows: "An Application Control policy has blocked this file"
+### 4. Run in Docker
+The `Dockerfile` builds the app with Node and serves it with nginx, which also forwards `/customer`
+and `/admin` to the backend (no CORS setup needed) and sends the same security headers as the
+preview server (`docker/nginx.conf.template`).
+
+```powershell
+docker build -t railway-frontend:1.17.0 .
+docker run -p 8081:8080 -e BACKEND_URL=http://host.docker.internal:8080 railway-frontend:1.17.0
+```
+`BACKEND_URL` is where the API runs (here: on your PC, outside Docker). To run MySQL, the API and the
+web app together with one command, or on Kubernetes, use `docker-compose.yml` and the guide in the
+backend repository: [docs/DEPLOYMENT.md](https://github.com/vikashalikatti/Railway/blob/master/docs/DEPLOYMENT.md).
+
+### 5. Windows: "An Application Control policy has blocked this file"
 Some Windows PCs (Smart App Control or company policy) block the native files that Vite's tools
 normally use. This project already uses their WebAssembly versions (`overrides` in `package.json`),
 so it runs anyway. If you still see the error, delete `node_modules` and `package-lock.json` and run
@@ -92,8 +105,9 @@ so it runs anyway. If you still see the error, delete `node_modules` and `packag
 
 ## Trying it out
 
-1. Create the admin at `/console/create`, log in, and **Import trains** (set "At most" to 20 for a
-   quick try) or **Add a train**.
+1. Create the admin at `/console/create`, log in, and **Import trains → Import Karnataka trains**
+   (set "At most" to 20 for a quick try) or **Add a train**. Try searching **SBC → DWR** for the
+   Vande Bharat.
 2. Register a passenger at `/signup` (an OTP is emailed), search the route, pick a class and book.
 3. Pay with the test card **4111 1111 1111 1111**, any future expiry, any CVV, OTP **123456**.
    To see a failed payment use card **4000 0000 0000 0002** or UPI **failure@upi**.
@@ -117,6 +131,7 @@ src/
 ├── pages/customer/      passenger pages
 ├── pages/admin/         admin pages
 └── styles/app.scss      the app's look (Bootstrap theme and components)
+Dockerfile, docker/nginx.conf.template   container: built app served by nginx
 ```
 
 Security: the built app has a strict Content-Security-Policy (no inline scripts, API calls only to
