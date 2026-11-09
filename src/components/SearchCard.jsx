@@ -2,7 +2,7 @@ import Card from 'react-bootstrap/Card';
 import Col from 'react-bootstrap/Col';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
-import { SEAT_TYPES } from '../api.js';
+import { QUOTAS, quotaOf, SEAT_TYPES } from '../api.js';
 import useForm from '../useForm.js';
 import { rules } from '../validate.js';
 import { useState } from 'react';
@@ -36,6 +36,7 @@ export default function SearchCard({ initial = {}, onSearch, variant = 'full', b
       to: initial.tl || initial.to || '',
       date: initial.date && initial.date >= todayIso() ? initial.date : todayIso(),
       cls: initial.cls || '',
+      quota: initial.quota || 'GN',
     },
     schema
   );
@@ -66,6 +67,7 @@ export default function SearchCard({ initial = {}, onSearch, variant = 'full', b
       tl: vals.to.trim(),
       date: vals.date,
       cls: vals.cls,
+      quota: vals.quota,
     });
 
   const station = (name, label, placeholder, opts = {}) => (
@@ -119,6 +121,20 @@ export default function SearchCard({ initial = {}, onSearch, variant = 'full', b
     </Form.Group>
   );
 
+  const quotaSelect = (
+    <Form.Group controlId={`${uid}-quota`}>
+      <Form.Label className="mb-1 small">Quota</Form.Label>
+      <Form.Select {...form.bind('quota', { native: true })}>
+        {QUOTAS.map((q) => (
+          <option key={q.id} value={q.id}>
+            {q.label}
+          </option>
+        ))}
+      </Form.Select>
+    </Form.Group>
+  );
+  const quotaHint = quotaOf(v.quota).hint;
+
   const swapButton = (
     <button type="button" className="btn btn-outline-secondary swap-btn" onClick={swap} aria-label="Swap from and to stations" title="Swap stations">
       <i className="bi bi-arrow-left-right" aria-hidden="true" />
@@ -144,6 +160,9 @@ export default function SearchCard({ initial = {}, onSearch, variant = 'full', b
           <Col xs={6} lg={2}>
             {classSelect}
           </Col>
+          <Col xs={12} sm={6} lg={2}>
+            {quotaSelect}
+          </Col>
           <Col xs={12} lg="auto" className="d-grid align-self-end">
             <Button type="submit" variant="accent" busy={busy} busyText="Searching…">
               <i className="bi bi-search" aria-hidden="true" />
@@ -168,6 +187,15 @@ export default function SearchCard({ initial = {}, onSearch, variant = 'full', b
           <Row className="g-3">
             <Col xs={6}>{field('date', 'Date of journey', { type: 'date', min: todayIso() })}</Col>
             <Col xs={6}>{classSelect}</Col>
+            <Col xs={12}>
+              {quotaSelect}
+              {quotaHint && (
+                <p className="small text-secondary mt-1 mb-0">
+                  <i className="bi bi-info-circle me-1" aria-hidden="true" />
+                  {quotaHint}
+                </p>
+              )}
+            </Col>
           </Row>
           <div className="d-flex gap-2" role="group" aria-label="Quick dates">
             {[

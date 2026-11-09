@@ -20,6 +20,8 @@ import MyBookings from './pages/customer/MyBookings.jsx';
 import AdminLogin from './pages/admin/AdminLogin.jsx';
 import AdminCreate from './pages/admin/AdminCreate.jsx';
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
+import AdminChart from './pages/admin/AdminChart.jsx';
+import ChartVacancy from './pages/customer/ChartVacancy.jsx';
 
 function RequireAdmin({ children }) {
   const { session } = useSession();
@@ -81,15 +83,25 @@ function Header() {
         <Navbar.Collapse id="main-nav">
           <Nav className="me-auto ms-md-3">
             {session?.role === 'admin' ? (
-              <Nav.Link as={NavLink} to="/console">
-                <i className="bi bi-train-front me-1" aria-hidden="true" />
-                Manage trains
-              </Nav.Link>
+              <>
+                <Nav.Link as={NavLink} to="/console" end>
+                  <i className="bi bi-train-front me-1" aria-hidden="true" />
+                  Manage trains
+                </Nav.Link>
+                <Nav.Link as={NavLink} to="/console/chart">
+                  <i className="bi bi-clipboard-data me-1" aria-hidden="true" />
+                  Charts
+                </Nav.Link>
+              </>
             ) : (
               <>
                 <Nav.Link as={NavLink} to="/" className={onTrains ? 'active' : ''}>
                   <i className="bi bi-search me-1" aria-hidden="true" />
                   Book tickets
+                </Nav.Link>
+                <Nav.Link as={NavLink} to="/chart">
+                  <i className="bi bi-clipboard-check me-1" aria-hidden="true" />
+                  Chart &amp; vacancy
                 </Nav.Link>
                 {session?.role === 'customer' && (
                   <Nav.Link as={NavLink} to="/bookings">
@@ -151,6 +163,7 @@ function Footer() {
         <nav aria-label="Footer" className="d-flex flex-wrap gap-4">
           <Link to="/">Book tickets</Link>
           <Link to="/bookings">My bookings</Link>
+          <Link to="/chart">Chart &amp; vacancy</Link>
           <Link to="/forgot">Reset password</Link>
           <Link to="/console/login">Admin</Link>
         </nav>
@@ -171,6 +184,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/trains" element={<Search />} />
             <Route path="/bookings" element={<MyBookings />} />
+            <Route path="/chart" element={<ChartVacancy />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/verify" element={<VerifyOtp />} />
@@ -182,6 +196,14 @@ export default function App() {
               element={
                 <RequireAdmin>
                   <AdminDashboard />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/console/chart"
+              element={
+                <RequireAdmin>
+                  <AdminChart />
                 </RequireAdmin>
               }
             />
