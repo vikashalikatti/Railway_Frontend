@@ -175,7 +175,6 @@ export default function Ticket({ booking: b, actions, footer }) {
                 {p.status === 'WL' && (p.needsAssistance || p.helper) && (
                   <div className="small text-secondary">{p.needsAssistance ? 'Boarding help' : 'Helper'}: matched once confirmed</div>
                 )}
-                {p.status === 'CNF' && p.wlNumber != null && <div className="small text-secondary">Booked at {wl} {p.wlNumber}</div>}
               </td>
               {actions && <td className="text-end pe-3">{actions(p)}</td>}
             </tr>
