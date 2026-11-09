@@ -22,6 +22,11 @@ import AdminCreate from './pages/admin/AdminCreate.jsx';
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import AdminChart from './pages/admin/AdminChart.jsx';
 import ChartVacancy from './pages/customer/ChartVacancy.jsx';
+import PnrStatus from './pages/customer/PnrStatus.jsx';
+import SavedPassengers from './pages/customer/SavedPassengers.jsx';
+import AdminRuns from './pages/admin/AdminRuns.jsx';
+import AdminReports from './pages/admin/AdminReports.jsx';
+import AdminImport from './pages/admin/AdminImport.jsx';
 
 function RequireAdmin({ children }) {
   const { session } = useSession();
@@ -92,6 +97,14 @@ function Header() {
                   <i className="bi bi-clipboard-data me-1" aria-hidden="true" />
                   Charts
                 </Nav.Link>
+                <Nav.Link as={NavLink} to="/console/runs">
+                  <i className="bi bi-broadcast me-1" aria-hidden="true" />
+                  Train runs
+                </Nav.Link>
+                <Nav.Link as={NavLink} to="/console/reports">
+                  <i className="bi bi-bar-chart-line me-1" aria-hidden="true" />
+                  Reports
+                </Nav.Link>
               </>
             ) : (
               <>
@@ -99,15 +112,25 @@ function Header() {
                   <i className="bi bi-search me-1" aria-hidden="true" />
                   Book tickets
                 </Nav.Link>
+                <Nav.Link as={NavLink} to="/pnr">
+                  <i className="bi bi-123 me-1" aria-hidden="true" />
+                  PNR status
+                </Nav.Link>
                 <Nav.Link as={NavLink} to="/chart">
                   <i className="bi bi-clipboard-check me-1" aria-hidden="true" />
                   Chart &amp; vacancy
                 </Nav.Link>
                 {session?.role === 'customer' && (
-                  <Nav.Link as={NavLink} to="/bookings">
-                    <i className="bi bi-ticket-perforated me-1" aria-hidden="true" />
-                    My bookings
-                  </Nav.Link>
+                  <>
+                    <Nav.Link as={NavLink} to="/bookings">
+                      <i className="bi bi-ticket-perforated me-1" aria-hidden="true" />
+                      My bookings
+                    </Nav.Link>
+                    <Nav.Link as={NavLink} to="/passengers">
+                      <i className="bi bi-people me-1" aria-hidden="true" />
+                      Passengers
+                    </Nav.Link>
+                  </>
                 )}
               </>
             )}
@@ -164,6 +187,7 @@ function Footer() {
           <Link to="/">Book tickets</Link>
           <Link to="/bookings">My bookings</Link>
           <Link to="/chart">Chart &amp; vacancy</Link>
+          <Link to="/pnr">PNR status</Link>
           <Link to="/forgot">Reset password</Link>
           <Link to="/console/login">Admin</Link>
         </nav>
@@ -185,6 +209,32 @@ export default function App() {
             <Route path="/trains" element={<Search />} />
             <Route path="/bookings" element={<MyBookings />} />
             <Route path="/chart" element={<ChartVacancy />} />
+            <Route path="/pnr" element={<PnrStatus />} />
+            <Route path="/passengers" element={<SavedPassengers />} />
+            <Route
+              path="/console/runs"
+              element={
+                <RequireAdmin>
+                  <AdminRuns />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/console/import"
+              element={
+                <RequireAdmin>
+                  <AdminImport />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/console/reports"
+              element={
+                <RequireAdmin>
+                  <AdminReports />
+                </RequireAdmin>
+              }
+            />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/verify" element={<VerifyOtp />} />

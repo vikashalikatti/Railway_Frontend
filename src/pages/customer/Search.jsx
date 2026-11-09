@@ -9,6 +9,7 @@ import SearchCard from '../../components/SearchCard.jsx';
 import { describeJourney, TIME_SLOTS } from '../../journey.js';
 import { resultsUrl, saveLastSearch } from './Home.jsx';
 import TrainCard from './TrainCard.jsx';
+import Connections from './Connections.jsx';
 
 const SORTS = [
   { id: 'dep', label: 'Departure' },
@@ -23,6 +24,7 @@ export default function Search() {
   const { session, askLogin } = useSession();
   const { busy, run } = useAction();
   const [noTrainsReason, setNoTrainsReason] = useState('');
+  const [connections, setConnections] = useState(null);
 
   const q = {
     from: params.get('from') || '',
@@ -50,6 +52,7 @@ export default function Search() {
     }
     setTrains(null);
     setNoTrainsReason('');
+    setConnections(null);
     run(async () => {
       try {
         const res = await customerApi.trains(session.token, { from: q.from, to: q.to, date: q.date });
@@ -59,6 +62,11 @@ export default function Search() {
         if (err.status === 404 && !err.unexpected && !/customer|account/i.test(err.message)) {
           setTrains([]);
           setNoTrainsReason(err.message);
+          // no direct train: look for journeys with one change
+          customerApi
+            .connections(session.token, { from: q.from, to: q.to, date: q.date })
+            .then((r) => setConnections(r.data2 || []))
+            .catch(() => setConnections([]));
           return;
         }
         throw err;
@@ -257,6 +265,8 @@ export default function Search() {
                 )}
               </Card>
             )}
+
+            {trains && trains.length === 0 && <Connections connections={connections} date={q.date} quota={q.quota} />}
 
             {shown.map(({ train, j, match }) => (
               <TrainCard

@@ -1,6 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BERTH_LABELS, customerApi, quotaOf, quotaProblem } from '../../api.js';
+import {
+  BERTH_LABELS,
+  bedrollIncluded,
+  bedrollOffered,
+  canAskForHelp,
+  canHelp,
+  customerApi,
+  extrasFare,
+  isChild,
+  isInfant,
+  MEALS,
+  quotaOf,
+  quotaProblem,
+  ticketFare,
+} from '../../api.js';
 import { useAction, useSession } from '../../session.jsx';
 import Col from 'react-bootstrap/Col';
 import Row from 'react-bootstrap/Row';
@@ -9,19 +23,21 @@ import { check, focusFirstError, rules } from '../../validate.js';
 import { digits } from '../../useForm.js';
 import Ticket from './Ticket.jsx';
 
-const blank = () => ({ name: '', age: '', gender: '', berthPreference: '' });
+const blank = () => ({ name: '', age: '', gender: '', berthPreference: '', noBerth: false, meal: 'NONE', bedroll: false, needsAssistance: false, helper: false });
+const MAX_INFANTS = 2;
 
 // Same checks as signup, worded for a passenger
 const reword = (rule, from, to) => (v) => rule(v).replace(from, to);
 const passengerSchema = {
   name: reword(rules.personName, 'your full name', 'the passenger’s name'),
-  age: reword(rules.age, 'your age', 'the passenger’s age'),
+  // 0 is fine here: babies under 1 travel as infants
+  age: (v) => (v === '' || v == null ? 'Enter the passenger’s age.' : Number(v) > 120 ? 'Enter an age up to 120.' : ''),
   gender: rules.required('the gender'),
 };
 
 export default function BookingPanel({ train, seatClass, availability, date, from, to, quota = 'GN', onClose, onBooked }) {
   const q = quotaOf(quota);
-  const MAX_PASSENGERS = q.max;
+  const MAX_PASSENGERS = q.max + MAX_INFANTS; // rows: passengers plus up to 2 children under 5
   const { session, notify } = useSession();
   const { busy, run } = useAction();
   const [passengers, setPassengers] = useState([blank()]);
@@ -30,11 +46,52 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
   const [formEl, setFormEl] = useState(null);
 
   const preferences = availability?.berthPreferences || [];
-  const onWaitlist = availability && availability.available < passengers.length;
+  const withoutBerth = (p) => isInfant(p.age) || (isChild(p.age) && p.noBerth);
+  const berthCount = passengers.filter((p) => !withoutBerth(p)).length;
+  const infants = passengers.filter((p) => isInfant(p.age)).length;
+  const onWaitlist = availability && availability.available < berthCount;
+  const [saved, setSaved] = useState([]);
+  const [saveNew, setSaveNew] = useState(true);
+
+  useEffect(() => {
+    customerApi
+      .savedPassengers(session.token)
+      .then((res) => setSaved(res.data2 || []))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Puts a saved traveller into the first empty row, or a new row */
+  const addSaved = (sp) => {
+    const filled = {
+      ...blank(),
+      name: sp.name,
+      age: String(sp.age),
+      gender: sp.gender,
+      berthPreference: preferences.includes(sp.berthPreference) ? sp.berthPreference : '',
+      meal: sp.meal || 'NONE',
+    };
+    const empty = passengers.findIndex((p) => !p.name.trim() && p.age === '');
+    if (empty >= 0) setPassengers(passengers.map((p, j) => (j === empty ? filled : p)));
+    else if (passengers.length < MAX_PASSENGERS) {
+      setPassengers([...passengers, filled]);
+      setErrors([...errors, {}]);
+    }
+  };
+  // Boarding help: a senior (60+) travelling alone can ask; adults (18-59) on other tickets can volunteer
+  const asksForHelp = passengers.some((p) => p.needsAssistance && canAskForHelp(p.age, berthCount) && !withoutBerth(p));
+  // A woman (12+) alone is seated near other women where possible; nothing about anyone else is shown
+  const soloWoman = berthCount === 1 && passengers.some((p) => !withoutBerth(p) && p.gender === 'Female' && p.age !== '' && Number(p.age) >= 12);
+  const onBooking = new Set(passengers.map((p) => p.name.trim().toLowerCase()));
   // Premium Tatkal, Ladies, Senior citizen and after-chart bookings have no waitlist
   const noWaitlist = !q.wl || availability?.chartPrepared;
   const tooMany = onWaitlist && noWaitlist;
-  const rulesProblem = quotaProblem(quota, passengers);
+  const rulesProblem =
+    quotaProblem(quota, passengers.filter((p) => !isInfant(p.age))) ||
+    (infants > MAX_INFANTS ? `Up to ${MAX_INFANTS} children under 5 can travel on one booking.` : '') ||
+    (passengers.length > 0 && passengers.every((p) => p.age !== '') && berthCount === 0
+      ? 'At least one passenger needs a berth: children without a berth travel with someone who has one.'
+      : '');
 
   const update = (i, k, v) => {
     setPassengers((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
@@ -83,16 +140,34 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
           name: p.name.trim(),
           age: Number(p.age),
           gender: p.gender,
-          berthPreference: p.berthPreference || null,
+          berthPreference: withoutBerth(p) ? null : p.berthPreference || null,
+          noBerth: isChild(p.age) && !!p.noBerth,
+          meal: p.meal || 'NONE',
+          bedroll: !!p.bedroll && bedrollOffered(seatClass.id),
+          needsAssistance: !!p.needsAssistance && canAskForHelp(p.age, berthCount) && !withoutBerth(p),
+          helper: !!p.helper && canHelp(p.age) && !asksForHelp,
         })),
       });
       setResult(res.data2);
       notify(res.message, 'good');
+      if (saveNew) {
+        // add new travellers to the saved list (in the background; a failure here doesn't matter)
+        const known = new Set(saved.map((x) => x.name.toLowerCase()));
+        passengers
+          .filter((p) => !known.has(p.name.trim().toLowerCase()))
+          .forEach((p) =>
+            customerApi
+              .savePassenger(session.token, { name: p.name.trim(), age: Number(p.age), gender: p.gender, berthPreference: p.berthPreference || null, meal: p.meal })
+              .catch(() => {})
+          );
+      }
       onBooked?.();
     });
   };
 
-  const fareTotal = availability ? availability.fare * passengers.length : null;
+  const fareTotal = availability
+    ? passengers.reduce((sum, p) => sum + ticketFare(p, availability.fare) + extrasFare(p, seatClass.id), 0)
+    : null;
   const travelDate = new Date(date + 'T00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
   if (result) {
@@ -148,6 +223,27 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
         Passengers aged 60 or over get a lower berth when one is free.
       </p>
 
+      {saved.length > 0 && (
+        <div className="d-flex flex-wrap align-items-center gap-2">
+          <span className="small text-secondary">Saved passengers:</span>
+          {saved.map((sp) => {
+            const added = onBooking.has(sp.name.toLowerCase());
+            return (
+              <button
+                type="button"
+                key={sp.id}
+                className={`btn btn-sm rounded-pill ${added ? 'btn-secondary' : 'btn-outline-primary'}`}
+                disabled={added || passengers.length >= MAX_PASSENGERS}
+                onClick={() => addSaved(sp)}
+              >
+                <i className={`bi ${added ? 'bi-check-lg' : 'bi-person-plus'} me-1`} aria-hidden="true" />
+                {sp.name} ({sp.age})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {passengers.map((p, i) => (
         <fieldset className="border rounded-3 p-3 pt-2" key={i}>
           <legend className="float-none w-auto px-2 fs-6 fw-bold mb-0">Passenger {i + 1}</legend>
@@ -189,7 +285,12 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
               </Select>
             </Col>
             <Col md={3}>
-              <Select label="Berth preference" value={p.berthPreference} onChange={(e) => update(i, 'berthPreference', e.target.value)}>
+              <Select
+                label="Berth preference"
+                value={withoutBerth(p) ? '' : p.berthPreference}
+                disabled={withoutBerth(p)}
+                onChange={(e) => update(i, 'berthPreference', e.target.value)}
+              >
                 <option value="">No preference</option>
                 {preferences.map((b) => (
                   <option key={b} value={b}>
@@ -199,6 +300,60 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
               </Select>
             </Col>
           </Row>
+          <div className="d-flex flex-wrap align-items-center gap-3 mt-2 small">
+            {isInfant(p.age) && (
+              <span className="text-success">
+                <i className="bi bi-emoji-smile me-1" aria-hidden="true" />
+                Under 5: travels free, without a berth
+              </span>
+            )}
+            {isChild(p.age) && (
+              <label className="form-check mb-0">
+                <input className="form-check-input" type="checkbox" checked={!!p.noBerth} onChange={(e) => update(i, 'noBerth', e.target.checked)} />
+                <span className="form-check-label">No berth (half fare)</span>
+              </label>
+            )}
+            <label className="d-flex align-items-center gap-2 mb-0">
+              Meal
+              <select
+                className="form-select form-select-sm w-auto"
+                value={p.meal || 'NONE'}
+                onChange={(e) => update(i, 'meal', e.target.value)}
+                aria-label={`Passenger ${i + 1} meal`}
+              >
+                {MEALS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                    {m.price ? ` (₹${m.price})` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {bedrollOffered(seatClass.id) && (
+              <label className="form-check mb-0">
+                <input className="form-check-input" type="checkbox" checked={!!p.bedroll} onChange={(e) => update(i, 'bedroll', e.target.checked)} />
+                <span className="form-check-label">Bedroll (₹150)</span>
+              </label>
+            )}
+            {bedrollIncluded(seatClass.id) && <span className="text-secondary">Bedroll included</span>}
+            {!withoutBerth(p) && canAskForHelp(p.age, berthCount) && (
+              <label className="form-check mb-0">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  checked={!!p.needsAssistance}
+                  onChange={(e) => update(i, 'needsAssistance', e.target.checked)}
+                />
+                <span className="form-check-label">Needs boarding help (we’ll find a helper on the coach)</span>
+              </label>
+            )}
+            {canHelp(p.age) && !asksForHelp && (
+              <label className="form-check mb-0" title="We seat you near a senior travelling alone who asked for help boarding">
+                <input className="form-check-input" type="checkbox" checked={!!p.helper} onChange={(e) => update(i, 'helper', e.target.checked)} />
+                <span className="form-check-label">Happy to help a senior traveller board</span>
+              </label>
+            )}
+          </div>
           {passengers.length > 1 && (
             <button type="button" className="btn btn-link btn-sm text-danger p-0 mt-2" onClick={() => remove(i)}>
               <i className="bi bi-x-circle me-1" aria-hidden="true" />
@@ -207,6 +362,13 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
           )}
         </fieldset>
       ))}
+
+      {soloWoman && (
+        <p className="small text-secondary mb-0">
+          <i className="bi bi-people me-1" aria-hidden="true" />
+          Travelling alone: where we can, we seat you in a bay with other women. No one is shown who sits where.
+        </p>
+      )}
 
       {rulesProblem && (
         <Note tone="warn">
@@ -221,8 +383,14 @@ export default function BookingPanel({ train, seatClass, availability, date, fro
             Add another passenger
           </button>
         ) : (
-          <span className="small text-secondary">Up to {MAX_PASSENGERS} passengers per booking</span>
+          <span className="small text-secondary">
+            Up to {q.max} passengers, plus {MAX_INFANTS} children under 5
+          </span>
         )}
+        <label className="form-check small mb-0">
+          <input className="form-check-input" type="checkbox" checked={saveNew} onChange={(e) => setSaveNew(e.target.checked)} />
+          <span className="form-check-label">Save new passengers for next time</span>
+        </label>
         <div className="d-flex align-items-center gap-3">
           {fareTotal != null && <span className="fs-4 fw-bold">{rupees(fareTotal)}</span>}
           <Button busy={busy} busyText="Booking…" type="submit" variant="accent" size="lg" disabled={!!rulesProblem || tooMany}>
